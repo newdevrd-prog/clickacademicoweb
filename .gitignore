@@ -1,0 +1,48 @@
+# Pasta do exportador ranieri
+exportador ranieri/
+exportador ranieri/*
+
+# Delphi compiled files
+*.dcu
+*.exe
+*.dll
+*.bpl
+*.bpi
+*.dcp
+*.o
+*.obj
+*.pch
+*.suo
+*.user
+*.local
+*.identcache
+*.tmsdsc
+
+# Delphi history and recovery
+__history/
+__recovery/
+*.~*
+
+# Firebird database files
+*.fdb
+*.gdb
+
+# Backup files
+*.rar
+*.zip
+*.7z
+*.bak
+*.backup
+
+# Firebase service account keys (SECURITY)
+*firebase-adminsdk*.json
+*serviceAccount*.json
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# OS
+.DS_Store
+Thumbs.db

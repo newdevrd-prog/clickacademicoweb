@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login do Professor - Portal Escolar</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="login-container">
+        <!-- Cabeçalho com logo e nome da escola -->
+        <div class="login-header">
+            <div class="logo-container">
+                <img id="logo-escola" src="" alt="Logo da Escola" class="logo-escola">
+            </div>
+            <h1 id="nome-escola" class="nome-escola">Carregando...</h1>
+            <p class="subtitulo">Portal do Professor</p>
+        </div>
+
+        <!-- Formulário de Login -->
+        <div class="login-form-container">
+            <!-- Formulário de Login -->
+            <form id="login-form" class="login-form">
+                <div class="form-group">
+                    <label for="usuario">Usuário</label>
+                    <input type="text" id="usuario" name="usuario" required autocomplete="username" placeholder="Digite seu usuário">
+                </div>
+
+                <div class="form-group">
+                    <label for="senha">Senha</label>
+                    <input type="password" id="senha" name="senha" required autocomplete="current-password" placeholder="Digite sua senha">
+                </div>
+
+                <!-- Checkbox manter logado -->
+                <div class="form-group checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="manter-logado" name="manter-logado">
+                        <span class="checkmark"></span>
+                        Manter logado
+                    </label>
+                </div>
+
+                <div id="mensagem-erro" class="mensagem-erro"></div>
+
+                <button type="submit" class="btn-login">
+                    <span class="btn-text">Entrar</span>
+                    <span class="btn-loading" style="display: none;">Aguarde...</span>
+                </button>
+            </form>
+
+            <div class="login-info">
+                <p>Primeiro acesso? Digite usuário e qualquer senha.</p>
+                <p>Problemas com login? Contacte a secretaria.</p>
+            </div>
+
+            <!-- Modal de Cadastro de Senha (Primeiro Acesso) -->
+            <div id="modal-cadastro-senha" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <h3>Bem-vindo, <span id="nome-professor-modal"></span>!</h3>
+                    <p class="modal-subtitulo">Este é seu primeiro acesso. Cadastre uma senha para continuar.</p>
+                    
+                    <form id="form-cadastro-senha">
+                        <div class="form-group">
+                            <label for="nova-senha">Nova Senha</label>
+                            <input type="password" id="nova-senha" required minlength="6" placeholder="Mínimo 6 caracteres">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="confirmar-senha">Confirmar Senha</label>
+                            <input type="password" id="confirmar-senha" required minlength="6" placeholder="Repita a senha">
+                        </div>
+                        
+                        <div id="mensagem-modal" class="mensagem-erro"></div>
+                        
+                        <div class="modal-botoes">
+                            <button type="submit" class="btn-login">Cadastrar e Entrar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- ÁREA DE LANÇAMENTO DE NOTAS (OCULTA ATÉ LOGIN) -->
+        <div id="area-notas" class="area-notas" style="display: none;">
+            <!-- Header com logo e info da escola -->
+            <div class="notas-escola-header">
+                <img id="logo-escola-notas" src="" alt="Logo" class="logo-escola-notas">
+                <div class="notas-escola-info">
+                    <h3 id="nome-escola-notas"></h3>
+                    <p id="endereco-escola-notas"></p>
+                </div>
+            </div>
+            
+            <div class="notas-header">
+                <h2>Lançamento de Notas</h2>
+                <p id="nome-professor-notas">Professor: </p>
+                <button id="btn-logout" class="btn-logout">Sair</button>
+            </div>
+
+            <!-- Filtros em Cascata -->
+            <div class="filtros-cascata">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="select-ano">Ano Letivo</label>
+                        <select id="select-ano" class="form-select">
+                            <option value="">Selecione o ano...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="select-curso">Curso</label>
+                        <select id="select-curso" class="form-select" disabled>
+                            <option value="">Selecione o curso...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="select-turma">Turma</label>
+                        <select id="select-turma" class="form-select" disabled>
+                            <option value="">Selecione a turma...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Períodos Dinâmicos -->
+                <div class="periodos-container">
+                    <label>Períodos/Bimestres</label>
+                    <div id="lista-periodos" class="lista-periodos">
+                        <!-- Períodos serão adicionados aqui -->
+                    </div>
+                    <div class="periodo-input-group">
+                        <input type="text" id="novo-periodo" placeholder="Ex: 1º Bimestre, Recuperação...">
+                        <button type="button" id="btn-adicionar-periodo" class="btn-adicionar">+ Adicionar Período</button>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="select-disciplina">Disciplina</label>
+                        <select id="select-disciplina" class="form-select" disabled>
+                            <option value="">Selecione a disciplina...</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista de Alunos para Lançamento -->
+            <div id="container-alunos" class="container-alunos" style="display: none;">
+                <h3>Alunos Matriculados</h3>
+                <div id="info-filtros" class="info-filtros">
+                    <span id="info-ano"></span> - 
+                    <span id="info-curso"></span> - 
+                    <span id="info-turma"></span> - 
+                    <span id="info-disciplina"></span> - 
+                    <span id="info-periodo"></span>
+                </div>
+                <div class="tabela-notas-wrapper">
+                    <table id="tabela-notas" class="tabela-notas">
+                        <thead>
+                            <tr>
+                                <th style="width: 10%;">Código</th>
+                                <th style="width: 40%;">Nome do Aluno</th>
+                                <th style="width: 15%;">Nota</th>
+                                <th style="width: 15%;">Faltas</th>
+                                <th style="width: 20%;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-notas">
+                            <!-- Alunos serão inseridos aqui -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="acoes-notas">
+                    <button id="btn-salvar-notas" class="btn-salvar" disabled>Salvar Todas as Notas</button>
+                    <span id="status-salvamento" class="status-salvamento"></span>
+                </div>
+            </div>
+
+            <div id="mensagem-notas" class="mensagem-notas"></div>
+        </div>
+
+        <!-- Rodapé -->
+        <div class="login-footer">
+            <p id="endereco-escola"></p>
+            <p id="contato-escola"></p>
+        </div>
+    </div>
+
+    <script>
+        // ========== CONFIGURAÇÕES FIREBASE ==========
+        const FIREBASE_PROJECT = 'clickacademico-342da';
+        const FIREBASE_API_KEY = 'AIzaSyA2-w2UfVhzN2prqJ2H0kecHYwLTC3XbkU';
+        const CONFIG_DOCUMENT_ID = 'config_principal';
+        const COLECAO_PROFESSORES = 'professores_online';
+
+        // ========== VARIÁVEIS GLOBAIS ==========
+        let professorLogado = null;
+
+        // ========== CARREGAR CONFIGURAÇÕES DA ESCOLA ==========
+        async function carregarConfiguracaoEscola() {
+            try {
+                const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/config_boletim/${CONFIG_DOCUMENT_ID}?key=${FIREBASE_API_KEY}`;
+                
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    console.warn('Configuração não encontrada, usando padrão');
+                    aplicarCoresTema(null, null);
+                    return;
+                }
+
+                const data = await response.json();
+                
+                if (data.fields) {
+                    const fields = data.fields;
+                    
+                    const nomeEscola = fields.nome_escola?.stringValue;
+                    const endereco = fields.endereco?.stringValue;
+                    const telefone = fields.telefone?.stringValue;
+                    const email = fields.email?.stringValue;
+                    const logoBase64 = fields.logo_base64?.stringValue;
+                    const corPrimaria = fields.cor_primaria?.stringValue;
+                    const corSecundaria = fields.cor_secundaria?.stringValue;
+
+                    // Aplicar nome da escola
+                    if (nomeEscola) {
+                        document.getElementById('nome-escola').textContent = nomeEscola;
+                        document.title = `Login - ${nomeEscola}`;
+                    } else {
+                        document.getElementById('nome-escola').textContent = 'Escola';
+                    }
+
+                    // Aplicar logo
+                    if (logoBase64) {
+                        const logoImg = document.getElementById('logo-escola');
+                        const tipoImagem = logoBase64.startsWith('data:') ? '' : 'data:image/png;base64,';
+                        logoImg.src = tipoImagem + logoBase64;
+                        logoImg.style.display = 'block';
+                    } else {
+                        document.getElementById('logo-escola').style.display = 'none';
+                    }
+
+                    // Aplicar endereço e contato
+                    if (endereco) {
+                        document.getElementById('endereco-escola').textContent = endereco;
+                    }
+                    if (telefone || email) {
+                        const contato = [telefone, email].filter(Boolean).join(' | ');
+                        document.getElementById('contato-escola').textContent = contato;
+                    }
+
+                    // Aplicar cores do tema
+                    aplicarCoresTema(corPrimaria, corSecundaria);
+                }
+            } catch (error) {
+                console.error('Erro ao carregar configuração:', error);
+                aplicarCoresTema(null, null);
+            }
+        }
+
+        // ========== APLICAR CORES DINÂMICAS ==========
+        function hexParaRgba(hex, alpha) {
+            hex = hex.replace('#', '');
+            if (hex.length === 3) {
+                hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+            }
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        function aplicarCoresTema(corPrimaria, corSecundaria) {
+            const primaria = corPrimaria || '#4caf50';
+            const secundaria = corSecundaria || '#2e7d32';
+
+            const root = document.documentElement;
+            root.style.setProperty('--cor-primaria', primaria);
+            root.style.setProperty('--cor-secundaria', secundaria);
+            root.style.setProperty('--cor-primaria-rgba', hexParaRgba(primaria, 0.3));
+            root.style.setProperty('--cor-primaria-rgba-light', hexParaRgba(primaria, 0.1));
+
+            console.log('Cores aplicadas:', primaria, secundaria);
+        }
+
+        // ========== BUSCAR PROFESSOR POR USUÁRIO ==========
+        async function buscarProfessorPorUsuario(usuario) {
+            try {
+                const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/${COLECAO_PROFESSORES}?key=${FIREBASE_API_KEY}`;
+                
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error('Erro ao acessar base de dados');
+                }
+
+                const data = await response.json();
+                
+                if (!data.documents) {
+                    return null;
+                }
+
+                const professorDoc = data.documents.find(doc => {
+                    const fields = doc.fields;
+                    return fields.usuario?.stringValue === usuario;
+                });
+
+                if (!professorDoc) {
+                    return null;
+                }
+
+                const fields = professorDoc.fields;
+                const documentId = professorDoc.name.split('/').pop();
+
+                return {
+                    documentId: documentId,
+                    codigoFuncionario: fields.codigo_funcionario?.integerValue || fields.codigo_funcionario?.stringValue,
+                    nome: fields.nome_professor?.stringValue,
+                    usuario: fields.usuario?.stringValue,
+                    senha: fields.senha?.stringValue,
+                    ativo: fields.ativo?.booleanValue !== false,
+                    primeiroLogin: fields.primeiro_login?.booleanValue === true
+                };
+
+            } catch (error) {
+                console.error('Erro ao buscar professor:', error);
+                return null;
+            }
+        }
+
+        // ========== SALVAR SENHA NO FIREBASE ==========
+        async function salvarSenhaProfessor(documentId, novaSenha) {
+            try {
+                // Usar updateMask para atualizar apenas os campos específicos sem apagar os outros
+                const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/${COLECAO_PROFESSORES}/${documentId}?key=${FIREBASE_API_KEY}&updateMask.fieldPaths=senha&updateMask.fieldPaths=primeiro_login`;
+                
+                const body = {
+                    fields: {
+                        senha: { stringValue: novaSenha },
+                        primeiro_login: { booleanValue: false }
+                    }
+                };
+
+                const response = await fetch(url, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                return response.ok;
+
+            } catch (error) {
+                console.error('Erro ao salvar senha:', error);
+                return false;
+            }
+        }
+
+        // ========== VARIÁVEIS DE ESTADO ==========
+        let professorAtual = null;
+
+        // ========== PERSISTÊNCIA (localStorage vs sessionStorage) ==========
+        function getStorage() {
+            const manterLogado = document.getElementById('manter-logado').checked;
+            return manterLogado ? localStorage : sessionStorage;
+        }
+
+        function salvarProfessorLogado(professor) {
+            const storage = getStorage();
+            storage.setItem('professorLogado', JSON.stringify(professor));
+            storage.setItem('professorLogadoTimestamp', Date.now().toString());
+        }
+
+        function removerProfessorLogado() {
+            localStorage.removeItem('professorLogado');
+            localStorage.removeItem('professorLogadoTimestamp');
+            sessionStorage.removeItem('professorLogado');
+            sessionStorage.removeItem('professorLogadoTimestamp');
+        }
+
+        function verificarProfessorLogado() {
+            // Verificar localStorage primeiro (manter logado)
+            let professorStr = localStorage.getItem('professorLogado');
+            let timestampStr = localStorage.getItem('professorLogadoTimestamp');
+            
+            if (!professorStr) {
+                // Verificar sessionStorage
+                professorStr = sessionStorage.getItem('professorLogado');
+                timestampStr = sessionStorage.getItem('professorLogadoTimestamp');
+            }
+
+            if (professorStr && timestampStr) {
+                const timestamp = parseInt(timestampStr);
+                const agora = Date.now();
+                const horasPassadas = (agora - timestamp) / (1000 * 60 * 60);
+
+                // Se passou mais de 24 horas, expirar sessão
+                if (horasPassadas > 24) {
+                    removerProfessorLogado();
+                    return null;
+                }
+
+                return JSON.parse(professorStr);
+            }
+
+            return null;
+        }
+
+        // ========== EVENTOS DO FORMULÁRIO PRINCIPAL ==========
+        document.getElementById('login-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const btnLogin = document.querySelector('.btn-login');
+            const btnText = btnLogin.querySelector('.btn-text');
+            const btnLoading = btnLogin.querySelector('.btn-loading');
+            const mensagemErro = document.getElementById('mensagem-erro');
+            
+            const usuario = document.getElementById('usuario').value.trim();
+            const senha = document.getElementById('senha').value;
+
+            // Validação básica
+            if (!usuario || !senha) {
+                mensagemErro.textContent = 'Preencha usuário e senha';
+                return;
+            }
+
+            // Mostrar loading
+            btnLogin.disabled = true;
+            btnText.style.display = 'none';
+            btnLoading.style.display = 'inline';
+            mensagemErro.textContent = '';
+
+            // Buscar professor
+            const professor = await buscarProfessorPorUsuario(usuario);
+
+            // Esconder loading
+            btnLogin.disabled = false;
+            btnText.style.display = 'inline';
+            btnLoading.style.display = 'none';
+
+            if (!professor) {
+                mensagemErro.textContent = 'Usuário não encontrado';
+                return;
+            }
+
+            if (!professor.ativo) {
+                mensagemErro.textContent = 'Usuário inativo. Contacte a secretaria.';
+                return;
+            }
+
+            professorAtual = professor;
+
+            // Verificar se é primeiro acesso
+            if (professor.primeiroLogin) {
+                // Mostrar modal de cadastro de senha (senha digitada é ignorada)
+                document.getElementById('nome-professor-modal').textContent = professor.nome;
+                document.getElementById('modal-cadastro-senha').style.display = 'flex';
+                document.getElementById('nova-senha').focus();
+            } else {
+                // Não é primeiro acesso - validar senha normalmente
+                if (senha !== professor.senha) {
+                    mensagemErro.textContent = 'Senha incorreta';
+                    document.getElementById('senha').value = '';
+                    document.getElementById('senha').focus();
+                    return;
+                }
+
+                // Login bem-sucedido!
+                salvarProfessorLogado(professor);
+                alert(`Bem-vindo, ${professor.nome}!`);
+                console.log('Login bem-sucedido:', professor);
+                // TODO: window.location.href = 'dashboard_professor.html';
+            }
+        });
+
+        // ========== EVENTO DO MODAL DE CADASTRO DE SENHA ==========
+        document.getElementById('form-cadastro-senha').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const novaSenha = document.getElementById('nova-senha').value;
+            const confirmarSenha = document.getElementById('confirmar-senha').value;
+            const mensagemModal = document.getElementById('mensagem-modal');
+
+            // Validar senhas
+            if (novaSenha.length < 6) {
+                mensagemModal.textContent = 'A senha deve ter no mínimo 6 caracteres';
+                return;
+            }
+
+            if (novaSenha !== confirmarSenha) {
+                mensagemModal.textContent = 'As senhas não conferem';
+                return;
+            }
+
+            // Salvar senha no Firebase
+            const sucesso = await salvarSenhaProfessor(professorAtual.documentId, novaSenha);
+
+            if (sucesso) {
+                // Atualizar dados do professor
+                professorAtual.senha = novaSenha;
+                professorAtual.primeiroLogin = false;
+                
+                // Fechar modal e salvar login
+                document.getElementById('modal-cadastro-senha').style.display = 'none';
+                salvarProfessorLogado(professorAtual);
+                
+                alert(`Senha cadastrada com sucesso!\n\nBem-vindo, ${professorAtual.nome}!`);
+                console.log('Login bem-sucedido (primeiro acesso):', professorAtual);
+                // TODO: window.location.href = 'dashboard_professor.html';
+            } else {
+                mensagemModal.textContent = 'Erro ao cadastrar senha. Tente novamente.';
+            }
+        });
+
+        // ========== FECHAR MODAL AO CLICAR FORA ==========
+        document.getElementById('modal-cadastro-senha').addEventListener('click', function(e) {
+            if (e.target === this) {
+                // Não fechar - obrigar a cadastrar senha
+            }
+        });
+
+        // ========== INICIALIZAÇÃO ==========
+        document.addEventListener('DOMContentLoaded', function() {
+            carregarConfiguracaoEscola();
+            
+            // Verificar se já está logado
+            const professorLogado = verificarProfessorLogado();
+            if (professorLogado) {
+                console.log('Professor já logado:', professorLogado);
+                mostrarAreaNotas(professorLogado);
+            }
+        });
+
+        // ========== VARIÁVEIS DO SISTEMA DE NOTAS ==========
+        let periodoSelecionado = null;
+        let periodos = [];
+
+        // ========== MOSTRAR ÁREA DE NOTAS APÓS LOGIN ==========
+        async function mostrarAreaNotas(professor) {
+            // Garantir que as configurações da escola estejam carregadas
+            if (!document.getElementById('logo-escola').src) {
+                await carregarConfiguracaoEscola();
+            }
+            
+            document.querySelector('.login-form-container').style.display = 'none';
+            document.getElementById('area-notas').style.display = 'block';
+            document.getElementById('nome-professor-notas').textContent = 'Professor: ' + professor.nome;
+            professorLogado = professor;
+            
+            // Adicionar classe ao body para layout completo
+            document.body.classList.add('area-notas-visivel');
+            
+            // Carregar logo e informações da escola no header (do Firebase)
+            document.getElementById('logo-escola-notas').src = document.getElementById('logo-escola').src;
+            document.getElementById('nome-escola-notas').textContent = document.getElementById('nome-escola').textContent;
+            document.getElementById('endereco-escola-notas').textContent = document.getElementById('endereco-escola').textContent;
+            
+            // Carregar dados iniciais
+            carregarAnosLetivos();
+        }
+
+        // ========== EVENTO DE LOGOUT ==========
+        document.getElementById('btn-logout').addEventListener('click', function() {
+            if (confirm('Deseja realmente sair?')) {
+                localStorage.removeItem('professorLogado');
+                sessionStorage.removeItem('professorLogado');
+                location.reload();
+            }
+        });
+
+        // ========== CARREGAR ANOS LETIVOS ==========
+        async function carregarAnosLetivos() {
+            const selectAno = document.getElementById('select-ano');
+            selectAno.innerHTML = '<option value="">Selecione o ano...</option>';
+            
+            // Carregar anos de 2020 até ano atual + 2
+            const anoAtual = new Date().getFullYear();
+            for (let ano = 2020; ano <= anoAtual + 2; ano++) {
+                const option = document.createElement('option');
+                option.value = ano;
+                option.textContent = ano;
+                selectAno.appendChild(option);
+            }
+            
+            // Selecionar ano atual
+            selectAno.value = anoAtual;
+        }
+
+        // ========== CARREGAR CURSOS DO FIREBASE ==========
+        async function carregarCursos() {
+            const selectCurso = document.getElementById('select-curso');
+            selectCurso.innerHTML = '<option value="">Selecione o curso...</option>';
+            selectCurso.disabled = true;
+            
+            try {
+                const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/cursos?key=${FIREBASE_API_KEY}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.documents) {
+                    data.documents.forEach(doc => {
+                        const option = document.createElement('option');
+                        option.value = doc.fields.CODIGO.integerValue;
+                        option.textContent = doc.fields.NOME.stringValue;
+                        selectCurso.appendChild(option);
+                    });
+                    selectCurso.disabled = false;
+                }
+            } catch (error) {
+                console.error('Erro ao carregar cursos:', error);
+            }
+        }
+
+        // ========== CARREGAR TURMAS DO FIREBASE ==========
+        async function carregarTurmas(codigoCurso) {
+            const selectTurma = document.getElementById('select-turma');
+            selectTurma.innerHTML = '<option value="">Selecione a turma...</option>';
+            selectTurma.disabled = true;
+            document.getElementById('select-disciplina').disabled = true;
+            document.getElementById('container-alunos').style.display = 'none';
+            
+            const anoSelecionado = document.getElementById('select-ano').value;
+            
+            try {
+                const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/turmas?key=${FIREBASE_API_KEY}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.documents) {
+                    data.documents.forEach(doc => {
+                        // Filtrar por curso
+                        if (doc.fields.CODIGOCURSO.integerValue == codigoCurso) {
+                            // Filtrar por ano (se selecionado)
+                            let turmaDoAno = true;
+                            if (anoSelecionado) {
+                                const inicio = doc.fields.INICIO?.stringValue;
+                                if (inicio) {
+                                    const dataInicio = new Date(inicio);
+                                    const anoInicio = dataInicio.getFullYear();
+                                    turmaDoAno = (anoInicio == anoSelecionado);
+                                }
+                            }
+                            
+                            if (turmaDoAno) {
+                                const option = document.createElement('option');
+                                option.value = doc.fields.CODIGO.integerValue;
+                                option.textContent = doc.fields.NOME.stringValue + ' - ' + doc.fields.ANOSERIE.stringValue;
+                                selectTurma.appendChild(option);
+                            }
+                        }
+                    });
+                    selectTurma.disabled = false;
+                }
+            } catch (error) {
+                console.error('Erro ao carregar turmas:', error);
+            }
+        }
+
+        // ========== CARREGAR DISCIPLINAS DO FIREBASE ==========
+        async function carregarDisciplinas() {
+            const selectDisciplina = document.getElementById('select-disciplina');
+            selectDisciplina.innerHTML = '<option value="">Selecione a disciplina...</option>';
+            selectDisciplina.disabled = true;
+            document.getElementById('container-alunos').style.display = 'none';
+            
+            try {
+                const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/disciplinas?key=${FIREBASE_API_KEY}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.documents) {
+                    data.documents.forEach(doc => {
+                        const option = document.createElement('option');
+                        option.value = doc.fields.CODIGO.integerValue;
+                        option.textContent = doc.fields.NOME.stringValue;
+                        selectDisciplina.appendChild(option);
+                    });
+                    selectDisciplina.disabled = false;
+                }
+            } catch (error) {
+                console.error('Erro ao carregar disciplinas:', error);
+            }
+        }
+
+        // ========== SISTEMA DE PERÍODOS ==========
+        document.getElementById('btn-adicionar-periodo').addEventListener('click', function() {
+            const input = document.getElementById('novo-periodo');
+            const nomePeriodo = input.value.trim();
+            
+            if (nomePeriodo) {
+                const periodo = {
+                    id: Date.now().toString(),
+                    nome: nomePeriodo
+                };
+                periodos.push(periodo);
+                renderizarPeriodos();
+                input.value = '';
+                
+                // Selecionar o período adicionado automaticamente
+                selecionarPeriodo(periodo.id);
+            }
+        });
+
+        function renderizarPeriodos() {
+            const lista = document.getElementById('lista-periodos');
+            lista.innerHTML = '';
+            
+            periodos.forEach(periodo => {
+                const tag = document.createElement('div');
+                tag.className = 'periodo-tag' + (periodoSelecionado === periodo.id ? ' ativo' : '');
+                tag.innerHTML = `
+                    <span>${periodo.nome}</span>
+                    <button onclick="removerPeriodo('${periodo.id}')">&times;</button>
+                `;
+                tag.onclick = (e) => {
+                    if (e.target.tagName !== 'BUTTON') {
+                        selecionarPeriodo(periodo.id);
+                    }
+                };
+                lista.appendChild(tag);
+            });
+            
+            // Verificar se pode salvar notas
+            verificarPodeSalvarNotas();
+        }
+
+        function selecionarPeriodo(id) {
+            periodoSelecionado = id;
+            renderizarPeriodos();
+            carregarNotasExistentes();
+        }
+
+        function removerPeriodo(id) {
+            periodos = periodos.filter(p => p.id !== id);
+            if (periodoSelecionado === id) {
+                periodoSelecionado = null;
+            }
+            renderizarPeriodos();
+            carregarNotasExistentes();
+        }
+
+        // ========== CARREGAR ALUNOS MATRICULADOS ==========
+        async function carregarAlunosMatriculados(ano, codigoTurma) {
+            const tbody = document.getElementById('tbody-notas');
+            tbody.innerHTML = '';
+            
+            console.log('Carregando alunos matriculados - Ano:', ano, 'Turma:', codigoTurma);
+            
+            try {
+                const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/matriculas?key=${FIREBASE_API_KEY}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                console.log('Matrículas recebidas:', data.documents?.length || 0);
+                
+                if (data.documents) {
+                    // Buscar dados dos alunos com paginação
+                    const alunosMap = {};
+                    let nextPageToken = '';
+                    
+                    do {
+                        let urlAlunos = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/alunos?key=${FIREBASE_API_KEY}`;
+                        if (nextPageToken) {
+                            urlAlunos += `&pageToken=${nextPageToken}`;
+                        }
+                        
+                        const responseAlunos = await fetch(urlAlunos);
+                        const dataAlunos = await responseAlunos.json();
+                        
+                        if (dataAlunos.documents) {
+                            dataAlunos.documents.forEach(doc => {
+                                const codigo = doc.fields.CODIGO?.integerValue;
+                                const nome = doc.fields.NOME?.stringValue;
+                                alunosMap[codigo] = nome;
+                            });
+                        }
+                        
+                        nextPageToken = dataAlunos.nextPageToken || '';
+                        console.log('Alunos carregados nesta página:', dataAlunos.documents?.length || 0, 'Total acumulado:', Object.keys(alunosMap).length);
+                    } while (nextPageToken);
+                    
+                    console.log('Alunos carregados:', Object.keys(alunosMap).length);
+                    console.log('AlunosMap keys:', Object.keys(alunosMap).slice(0, 10));
+                    console.log('Exemplo aluno:', alunosMap[Object.keys(alunosMap)[0]]);
+                    
+                    // Filtrar matrículas da turma (apenas por turma, sem filtro de ano por enquanto)
+                    console.log('Filtrando matrículas - codigoTurma (tipo:', typeof codigoTurma, '):', codigoTurma);
+                    
+                    const matriculasFiltradas = data.documents.filter(doc => {
+                        const turmaId = doc.fields.CODIGOTURMA?.integerValue;
+                        console.log('Matrícula CODIGO:', doc.fields.CODIGO?.integerValue, 'TurmaID (tipo:', typeof turmaId, '):', turmaId, '===', codigoTurma, '?', turmaId == codigoTurma);
+                        return turmaId == codigoTurma;
+                    });
+                    
+                    console.log('Matrículas filtradas:', matriculasFiltradas.length, 'de', data.documents.length, 'total');
+                    
+                    // Se não encontrou, mostrar todas as turmas disponíveis
+                    if (matriculasFiltradas.length === 0) {
+                        console.log('Nenhuma matrícula encontrada. Turmas disponíveis nas matrículas:');
+                        const turmasDisponiveis = [...new Set(data.documents.map(doc => doc.fields.CODIGOTURMA?.integerValue))];
+                        console.log('Turmas:', turmasDisponiveis);
+                    }
+                    
+                    matriculasFiltradas.forEach(matricula => {
+                        const codigoAluno = matricula.fields.CODIGOALUNO?.integerValue;
+                        console.log('Matricula CODIGOALUNO:', codigoAluno, 'tipo:', typeof codigoAluno, 'existe no alunosMap?', alunosMap[codigoAluno]);
+                        const nomeAluno = alunosMap[codigoAluno] || 'Aluno não encontrado';
+                        
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${codigoAluno}</td>
+                            <td>${nomeAluno}</td>
+                            <td>
+                                <input type="number" 
+                                       class="input-nota" 
+                                       data-matricula="${matricula.fields.CODIGO.integerValue}"
+                                       min="0" 
+                                       max="10" 
+                                       step="0.1" 
+                                       placeholder="0.0">
+                            </td>
+                            <td>
+                                <input type="number" 
+                                       class="input-falta" 
+                                       data-matricula="${matricula.fields.CODIGO.integerValue}"
+                                       min="0" 
+                                       step="1" 
+                                       placeholder="0">
+                            </td>
+                            <td><span class="status-pendente">Pendente</span></td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                    
+                    // Preencher informações dos filtros
+                    const selectCurso = document.getElementById('select-curso');
+                    const selectTurma = document.getElementById('select-turma');
+                    const selectDisciplina = document.getElementById('select-disciplina');
+                    
+                    document.getElementById('info-ano').textContent = 'Ano: ' + ano;
+                    document.getElementById('info-curso').textContent = selectCurso.selectedIndex >= 0 ? selectCurso.options[selectCurso.selectedIndex].text : '';
+                    document.getElementById('info-turma').textContent = selectTurma.selectedIndex >= 0 ? selectTurma.options[selectTurma.selectedIndex].text : '';
+                    document.getElementById('info-disciplina').textContent = selectDisciplina.selectedIndex >= 0 ? selectDisciplina.options[selectDisciplina.selectedIndex].text : '';
+                    
+                    const periodo = periodos.find(p => p.id === periodoSelecionado);
+                    document.getElementById('info-periodo').textContent = periodo ? 'Período: ' + periodo.nome : '';
+                    
+                    document.getElementById('container-alunos').style.display = 'block';
+                    verificarPodeSalvarNotas();
+                }
+            } catch (error) {
+                console.error('Erro ao carregar alunos:', error);
+            }
+        }
+
+        // ========== CARREGAR NOTAS EXISTENTES ==========
+        async function carregarNotasExistentes() {
+            const inputs = document.querySelectorAll('.input-nota');
+            const inputsFalta = document.querySelectorAll('.input-falta');
+            
+            inputs.forEach(input => {
+                input.value = '';
+                input.parentElement.nextElementSibling.innerHTML = '<span class="status-pendente">Pendente</span>';
+            });
+            
+            inputsFalta.forEach(input => {
+                input.value = '';
+            });
+            
+            if (!periodoSelecionado || !document.getElementById('select-disciplina').value) {
+                return;
+            }
+            
+            const codigoTurma = document.getElementById('select-turma').value;
+            const codigoDisciplina = document.getElementById('select-disciplina').value;
+            const ano = document.getElementById('select-ano').value;
+            const periodo = periodos.find(p => p.id === periodoSelecionado);
+            
+            if (!periodo) return;
+            
+            try {
+                const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/notas_lancamentos?key=${FIREBASE_API_KEY}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.documents) {
+                    data.documents.forEach(doc => {
+                        const fields = doc.fields;
+                        if (fields.ANO.stringValue == ano &&
+                            fields.TURMA_ID.stringValue == codigoTurma &&
+                            fields.DISCIPLINA_ID.stringValue == codigoDisciplina &&
+                            fields.PERIODO_NOME.stringValue == periodo.nome) {
+                            
+                            const matriculaId = fields.MATRICULA_ID.stringValue;
+                            const input = document.querySelector(`.input-nota[data-matricula="${matriculaId}"]`);
+                            const inputFalta = document.querySelector(`.input-falta[data-matricula="${matriculaId}"]`);
+                            if (input) {
+                                input.value = fields.NOTA.doubleValue;
+                                input.parentElement.nextElementSibling.innerHTML = '<span class="status-salvo">Salvo</span>';
+                            }
+                            if (inputFalta && fields.FALTAS) {
+                                inputFalta.value = fields.FALTAS.integerValue;
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Erro ao carregar notas:', error);
+            }
+        }
+
+        // ========== VERIFICAR SE PODE SALVAR ==========
+        function verificarPodeSalvarNotas() {
+            const btnSalvar = document.getElementById('btn-salvar-notas');
+            const podeSalvar = periodoSelecionado !== null && 
+                             document.getElementById('select-disciplina').value !== '';
+            btnSalvar.disabled = !podeSalvar;
+        }
+
+        // ========== SALVAR NOTAS ==========
+        document.getElementById('btn-salvar-notas').addEventListener('click', async function() {
+            const btn = this;
+            const status = document.getElementById('status-salvamento');
+            const inputs = document.querySelectorAll('.input-nota');
+            const inputsFalta = document.querySelectorAll('.input-falta');
+            
+            btn.disabled = true;
+            status.textContent = 'Salvando...';
+            
+            const ano = document.getElementById('select-ano').value;
+            const codigoTurma = document.getElementById('select-turma').value;
+            const codigoDisciplina = document.getElementById('select-disciplina').value;
+            const periodo = periodos.find(p => p.id === periodoSelecionado);
+            
+            console.log('Salvando notas - Ano:', ano, 'Turma:', codigoTurma, 'Disciplina:', codigoDisciplina, 'Período:', periodo?.nome);
+            
+            let salvos = 0;
+            let erros = 0;
+            
+            // Criar mapa de faltas por matricula
+            const faltasMap = {};
+            inputsFalta.forEach(input => {
+                const matriculaId = input.dataset.matricula;
+                const falta = parseInt(input.value) || 0;
+                faltasMap[matriculaId] = falta;
+            });
+            
+            for (const input of inputs) {
+                const matriculaId = input.dataset.matricula;
+                const nota = parseFloat(input.value);
+                const falta = faltasMap[matriculaId] || 0;
+                
+                if (isNaN(nota) && falta === 0) continue;
+                
+                // Gerar ID único para o lançamento
+                const lancamentoId = `${ano}_${codigoTurma}_${codigoDisciplina}_${periodo.nome}_${matriculaId}`;
+                
+                // Construir updateMask
+                const updateMask = [
+                    'ANO', 'TURMA_ID', 'DISCIPLINA_ID', 'PERIODO_NOME', 
+                    'MATRICULA_ID', 'NOTA', 'FALTAS', 'PROFESSOR_ID', 'DATA_LANCAMENTO'
+                ].map(field => `updateMask.fieldPaths=${field}`).join('&');
+                
+                const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/notas_lancamentos/${lancamentoId}?key=${FIREBASE_API_KEY}&${updateMask}`;
+                
+                const body = {
+                    fields: {
+                        ANO: { stringValue: String(ano) },
+                        TURMA_ID: { stringValue: String(codigoTurma) },
+                        DISCIPLINA_ID: { stringValue: String(codigoDisciplina) },
+                        PERIODO_NOME: { stringValue: periodo.nome },
+                        MATRICULA_ID: { stringValue: String(matriculaId) },
+                        NOTA: { doubleValue: isNaN(nota) ? 0 : nota },
+                        FALTAS: { integerValue: falta },
+                        PROFESSOR_ID: { stringValue: String(professorLogado.codigo) },
+                        DATA_LANCAMENTO: { timestampValue: new Date().toISOString() }
+                    }
+                };
+                
+                console.log('Salvando nota - Ano:', body.fields.ANO.stringValue, 'Matricula:', body.fields.MATRICULA_ID.stringValue, 'Nota:', body.fields.NOTA.doubleValue, 'Faltas:', body.fields.FALTAS.integerValue);
+                
+                try {
+                    const response = await fetch(url, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    
+                    if (response.ok) {
+                        salvos++;
+                        input.parentElement.nextElementSibling.innerHTML = '<span class="status-salvo">Salvo</span>';
+                    } else {
+                        erros++;
+                        console.error('Erro ao salvar nota:', response.status, response.statusText);
+                    }
+                } catch (error) {
+                    console.error('Erro ao salvar nota:', error);
+                    erros++;
+                }
+            }
+            
+            status.textContent = `Concluído: ${salvos} salvos, ${erros} erros`;
+            btn.disabled = false;
+            
+            const mensagem = document.getElementById('mensagem-notas');
+            mensagem.textContent = `Notas salvas com sucesso! ${salvos} registros atualizados.`;
+            mensagem.className = 'mensagem-notas sucesso';
+            
+            setTimeout(() => {
+                mensagem.className = 'mensagem-notas';
+                status.textContent = '';
+            }, 3000);
+        });
+
+        // ========== EVENTOS DOS SELECTS ==========
+        document.getElementById('select-ano').addEventListener('change', function() {
+            if (this.value) {
+                carregarCursos();
+            }
+        });
+
+        document.getElementById('select-curso').addEventListener('change', function() {
+            if (this.value) {
+                carregarTurmas(this.value);
+            }
+        });
+
+        document.getElementById('select-turma').addEventListener('change', function() {
+            const ano = document.getElementById('select-ano').value;
+            if (this.value && ano) {
+                carregarDisciplinas();
+            }
+        });
+
+        document.getElementById('select-disciplina').addEventListener('change', function() {
+            const ano = document.getElementById('select-ano').value;
+            const turma = document.getElementById('select-turma').value;
+            if (this.value && ano && turma) {
+                carregarAlunosMatriculados(ano, turma);
+            }
+        });
+
+        // ========== MODIFICAR LOGIN PARA MOSTRAR ÁREA DE NOTAS ==========
+        const originalSalvarProfessorLogado = salvarProfessorLogado;
+        salvarProfessorLogado = function(professor) {
+            originalSalvarProfessorLogado(professor);
+            mostrarAreaNotas(professor);
+        };
+    </script>
+</body>
+</html>
