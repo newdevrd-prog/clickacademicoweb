@@ -1,0 +1,259 @@
+object FormCadastroLoginProfessores: TFormCadastroLoginProfessores
+  Left = 0
+  Top = 0
+  Caption = 'Cadastro de Login de Professores'
+  ClientHeight = 600
+  ClientWidth = 900
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -12
+  Font.Name = 'Segoe UI'
+  Font.Style = []
+  OldCreateOrder = True
+  Position = poScreenCenter
+  OnCreate = FormCreate
+  PixelsPerInch = 96
+  TextHeight = 15
+  object PanelTop: TPanel
+    Left = 0
+    Top = 0
+    Width = 900
+    Height = 50
+    Align = alTop
+    BevelOuter = bvNone
+    Color = clGradientActiveCaption
+    ParentBackground = False
+    TabOrder = 0
+    object lblTitulo: TLabel
+      Left = 20
+      Top = 15
+      Width = 251
+      Height = 21
+      Caption = 'Cadastro de Login de Professores'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWhite
+      Font.Height = -16
+      Font.Name = 'Segoe UI'
+      Font.Style = [fsBold]
+      ParentFont = False
+    end
+    object btnFechar: TButton
+      Left = 800
+      Top = 10
+      Width = 80
+      Height = 30
+      Caption = 'Fechar'
+      TabOrder = 0
+      OnClick = btnFecharClick
+    end
+  end
+  object PanelCadastro: TPanel
+    Left = 0
+    Top = 50
+    Width = 900
+    Height = 150
+    Align = alTop
+    BevelOuter = bvNone
+    Padding.Left = 20
+    Padding.Top = 20
+    Padding.Right = 20
+    Padding.Bottom = 20
+    TabOrder = 1
+    object lblCodigoFuncionario: TLabel
+      Left = 20
+      Top = 20
+      Width = 39
+      Height = 15
+      Caption = 'Codigo'
+    end
+    object lblNomeProfessor: TLabel
+      Left = 160
+      Top = 20
+      Width = 102
+      Height = 15
+      Caption = 'Nome do Professor'
+    end
+    object lblUsuario: TLabel
+      Left = 480
+      Top = 20
+      Width = 40
+      Height = 15
+      Caption = 'Usuario'
+    end
+    object edtCodigoFuncionario: TEdit
+      Left = 20
+      Top = 41
+      Width = 120
+      Height = 23
+      ReadOnly = True
+      TabOrder = 0
+    end
+    object edtNomeProfessor: TEdit
+      Left = 160
+      Top = 41
+      Width = 300
+      Height = 23
+      ReadOnly = True
+      TabOrder = 1
+    end
+    object edtUsuario: TEdit
+      Left = 480
+      Top = 41
+      Width = 150
+      Height = 23
+      TabOrder = 2
+    end
+    object chkAtivo: TCheckBox
+      Left = 650
+      Top = 43
+      Width = 100
+      Height = 17
+      Caption = 'Ativo'
+      Checked = True
+      State = cbChecked
+      TabOrder = 3
+    end
+    object btnBuscarFuncionario: TButton
+      Left = 20
+      Top = 80
+      Width = 140
+      Height = 35
+      Caption = 'Buscar Funcionario'
+      TabOrder = 4
+      OnClick = btnBuscarFuncionarioClick
+    end
+    object btnSalvar: TButton
+      Left = 180
+      Top = 80
+      Width = 100
+      Height = 35
+      Caption = 'Salvar'
+      TabOrder = 5
+      OnClick = btnSalvarClick
+    end
+    object btnNovo: TButton
+      Left = 290
+      Top = 80
+      Width = 100
+      Height = 35
+      Caption = 'Novo'
+      TabOrder = 6
+      OnClick = btnNovoClick
+    end
+  end
+  object PanelGrid: TPanel
+    Left = 0
+    Top = 200
+    Width = 900
+    Height = 350
+    Align = alClient
+    BevelOuter = bvNone
+    Padding.Left = 20
+    Padding.Right = 20
+    Padding.Bottom = 20
+    TabOrder = 2
+    object DBGridLogins: TDBGrid
+      Left = 20
+      Top = 0
+      Width = 860
+      Height = 330
+      Align = alClient
+      DataSource = DataSourceProfessores
+      Options = [dgTitles, dgIndicator, dgColumnResize, dgColLines, dgRowLines, dgTabs, dgRowSelect, dgAlwaysShowSelection, dgConfirmDelete, dgCancelOnExit, dgTitleClick, dgTitleHotTrack]
+      TabOrder = 0
+      TitleFont.Charset = DEFAULT_CHARSET
+      TitleFont.Color = clWindowText
+      TitleFont.Height = -12
+      TitleFont.Name = 'Segoe UI'
+      TitleFont.Style = []
+      OnDblClick = DBGridLoginsDblClick
+    end
+  end
+  object PanelBotoesGrid: TPanel
+    Left = 0
+    Top = 550
+    Width = 900
+    Height = 50
+    Align = alBottom
+    BevelOuter = bvNone
+    Padding.Left = 20
+    Padding.Right = 20
+    TabOrder = 3
+    object btnAtualizar: TButton
+      Left = 20
+      Top = 10
+      Width = 100
+      Height = 30
+      Caption = 'Atualizar'
+      TabOrder = 0
+      OnClick = btnAtualizarClick
+    end
+    object btnEditar: TButton
+      Left = 140
+      Top = 10
+      Width = 100
+      Height = 30
+      Caption = 'Editar'
+      TabOrder = 1
+      OnClick = btnEditarClick
+    end
+    object btnResetarSenha: TButton
+      Left = 260
+      Top = 10
+      Width = 120
+      Height = 30
+      Caption = 'Resetar Senha'
+      TabOrder = 2
+      OnClick = btnResetarSenhaClick
+    end
+    object btnExcluir: TButton
+      Left = 400
+      Top = 10
+      Width = 100
+      Height = 30
+      Caption = 'Excluir'
+      TabOrder = 3
+      OnClick = btnExcluirClick
+    end
+  end
+  object FDConnection: TFDConnection
+    Params.Strings = (
+      'Server=localhost'
+      'Database=C:\ClickAcademico\ClickAcademico.FDB'
+      'User_Name=sysdba'
+      'Password=masterkey'
+      'Protocol=TCPIP'
+      'Port=3050'
+      'DriverID=FB')
+    LoginPrompt = False
+    Left = 680
+    Top = 80
+  end
+  object FDQueryProfessores: TFDQuery
+    Connection = FDConnection
+    Left = 680
+    Top = 136
+  end
+  object DataSourceProfessores: TDataSource
+    DataSet = FDMemTableProfessores
+    Left = 680
+    Top = 192
+  end
+  object FDQueryBusca: TFDQuery
+    Connection = FDConnection
+    Left = 768
+    Top = 136
+  end
+  object FDMemTableProfessores: TFDMemTable
+    FetchOptions.AssignedValues = [evMode]
+    FetchOptions.Mode = fmAll
+    ResourceOptions.AssignedValues = [rvSilentMode]
+    ResourceOptions.SilentMode = True
+    UpdateOptions.AssignedValues = [uvCheckRequired, uvAutoCommitUpdates]
+    UpdateOptions.CheckRequired = False
+    UpdateOptions.AutoCommitUpdates = True
+    Left = 768
+    Top = 192
+  end
+end

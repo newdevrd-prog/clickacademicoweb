@@ -1,0 +1,151 @@
+object FormPrincipal: TFormPrincipal
+  Left = 0
+  Top = 0
+  Caption = 'Sistema de Boletim Escolar'
+  ClientHeight = 500
+  ClientWidth = 800
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  Menu = MainMenu
+  OldCreateOrder = True
+  Position = poScreenCenter
+  PixelsPerInch = 96
+  TextHeight = 13
+  object PanelTop: TPanel
+    Left = 0
+    Top = 0
+    Width = 800
+    Height = 120
+    Align = alTop
+    BevelOuter = bvNone
+    Color = clWhite
+    ParentBackground = False
+    TabOrder = 0
+    object lblTitulo: TLabel
+      Left = 20
+      Top = 20
+      Width = 400
+      Height = 35
+      Caption = 'Sistema de Boletim Escolar'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clNavy
+      Font.Height = -29
+      Font.Name = 'Tahoma'
+      Font.Style = [fsBold]
+      ParentFont = False
+    end
+    object lblSubtitulo: TLabel
+      Left = 20
+      Top = 65
+      Width = 450
+      Height = 16
+      Caption = 'Exportacao de Boletim e Cadastro de Login de Alunos'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clGray
+      Font.Height = -13
+      Font.Name = 'Tahoma'
+      Font.Style = []
+      ParentFont = False
+    end
+  end
+  object PanelBotoes: TPanel
+    Left = 0
+    Top = 120
+    Width = 800
+    Height = 380
+    Align = alClient
+    BevelOuter = bvNone
+    Color = clBtnFace
+    ParentBackground = False
+    TabOrder = 1
+    object btnExportarBoletim: TButton
+      Left = 200
+      Top = 80
+      Width = 400
+      Height = 60
+      Caption = 'Exportar Boletim para Firebase'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -16
+      Font.Name = 'Tahoma'
+      Font.Style = [fsBold]
+      ParentFont = False
+      TabOrder = 0
+      OnClick = btnExportarBoletimClick
+    end
+    object btnCadastroLogin: TButton
+      Left = 200
+      Top = 160
+      Width = 400
+      Height = 60
+      Caption = 'Cadastro de Login de Alunos'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -16
+      Font.Name = 'Tahoma'
+      Font.Style = [fsBold]
+      ParentFont = False
+      TabOrder = 1
+      OnClick = btnCadastroLoginClick
+    end
+    object btnConfigBoletim: TButton
+      Left = 200
+      Top = 230
+      Width = 400
+      Height = 40
+      Caption = 'Configurações do Boletim'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -14
+      Font.Name = 'Tahoma'
+      Font.Style = []
+      ParentFont = False
+      TabOrder = 2
+      OnClick = btnConfigBoletimClick
+    end
+    object btnSair: TButton
+      Left = 200
+      Top = 280
+      Width = 400
+      Height = 50
+      Caption = 'Sair'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -14
+      Font.Name = 'Tahoma'
+      Font.Style = []
+      ParentFont = False
+      TabOrder = 3
+      OnClick = btnSairClick
+    end
+  end
+  object MainMenu: TMainMenu
+    Left = 20
+    Top = 20
+    object MenuArquivo: TMenuItem
+      Caption = 'Arquivo'
+      object MenuSair: TMenuItem
+        Caption = 'Sair'
+        OnClick = MenuSairClick
+      end
+    end
+    object MenuBoletim: TMenuItem
+      Caption = 'Boletim'
+      object MenuExportarBoletim: TMenuItem
+        Caption = 'Exportar Boletim'
+        OnClick = MenuExportarBoletimClick
+      end
+    end
+    object MenuAlunos: TMenuItem
+      Caption = 'Alunos'
+      object MenuCadastroLogin: TMenuItem
+        Caption = 'Cadastro de Login'
+        OnClick = MenuCadastroLoginClick
+      end
+    end
+  end
+end

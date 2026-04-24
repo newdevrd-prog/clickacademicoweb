@@ -1,0 +1,506 @@
+﻿unit UConfigBoletim;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
+  System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
+  Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Buttons, System.Net.HttpClient,
+  System.Net.HttpClientComponent, System.JSON, System.NetEncoding,
+  System.IOUtils, Vcl.Imaging.jpeg, Vcl.Imaging.pngimage;
+
+const
+  FIREBASE_PROJECT = 'clickacademico-342da';
+  FIREBASE_API_KEY = 'AIzaSyA2-w2UfVhzN2prqJ2H0kecHYwLTC3XbkU';
+  CONFIG_DOCUMENT_ID = 'config_principal';
+
+type
+  TFormConfigBoletim = class(TForm)
+    PanelBotoes: TPanel;
+    btnSalvar: TBitBtn;
+    btnCancelar: TBitBtn;
+    btnCarregarLogo: TBitBtn;
+    PanelCampos: TPanel;
+    LabelNomeEscola: TLabel;
+    edtNomeEscola: TEdit;
+    LabelEndereco: TLabel;
+    edtEndereco: TEdit;
+    LabelTelefone: TLabel;
+    edtTelefone: TEdit;
+    LabelEmail: TLabel;
+    edtEmail: TEdit;
+    LabelSite: TLabel;
+    edtSite: TEdit;
+    LabelTitulo: TLabel;
+    edtTitulo: TEdit;
+    LabelLogo: TLabel;
+    imgLogoPreview: TImage;
+    lblStatus: TLabel;
+    OpenDialogLogo: TOpenDialog;
+    LabelCorPrimaria: TLabel;
+    LabelCorSecundaria: TLabel;
+    colorPrimaria: TColorBox;
+    colorSecundaria: TColorBox;
+    btnResetCorPrimaria: TBitBtn;
+    btnResetCorSecundaria: TBitBtn;
+    LabelTemaCores: TLabel;
+    cmbTemaCores: TComboBox;
+    procedure FormCreate(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure btnCarregarLogoClick(Sender: TObject);
+    procedure btnSalvarClick(Sender: TObject);
+    procedure btnCancelarClick(Sender: TObject);
+    procedure btnResetCorPrimariaClick(Sender: TObject);
+    procedure btnResetCorSecundariaClick(Sender: TObject);
+    procedure cmbTemaCoresChange(Sender: TObject);
+  private
+    FLogoBase64: string;
+    procedure CarregarConfiguracoes;
+    procedure SalvarConfiguracoes;
+    function ImagemParaBase64(const Caminho: string): string;
+    procedure Base64ParaImagem(const Base64: string; Imagem: TImage);
+    procedure MostrarStatus(const Msg: string; Cor: TColor = clBlack);
+    function DetectarTipoImagem(const Bytes: TBytes): string;
+    function HexParaColor(const Hex: string): TColor;
+    function ColorParaHex(const Color: TColor): string;
+  public
+  end;
+
+var
+  FormConfigBoletim: TFormConfigBoletim;
+
+implementation
+
+{$R *.dfm}
+
+procedure TFormConfigBoletim.FormCreate(Sender: TObject);
+begin
+  FLogoBase64 := '';
+  lblStatus.Caption := '';
+  imgLogoPreview.Picture := nil;
+end;
+
+procedure TFormConfigBoletim.FormShow(Sender: TObject);
+begin
+  CarregarConfiguracoes;
+end;
+
+procedure TFormConfigBoletim.MostrarStatus(const Msg: string; Cor: TColor);
+begin
+  lblStatus.Caption := Msg;
+  lblStatus.Font.Color := Cor;
+  Application.ProcessMessages;
+end;
+
+procedure TFormConfigBoletim.CarregarConfiguracoes;
+var
+  HTTP: TNetHTTPClient;
+  Response: IHTTPResponse;
+  URL: string;
+  JSONObj: TJSONObject;
+  Fields: TJSONObject;
+  Field: TJSONValue;
+begin
+  MostrarStatus('Carregando configurações...', clBlue);
+
+  HTTP := TNetHTTPClient.Create(nil);
+  try
+    URL := Format('https://firestore.googleapis.com/v1/projects/%s/databases/(default)/documents/config_boletim/%s?key=%s',
+      [FIREBASE_PROJECT, CONFIG_DOCUMENT_ID, FIREBASE_API_KEY]);
+
+    try
+      Response := HTTP.Get(URL);
+
+      if Response.StatusCode = 200 then
+      begin
+        JSONObj := TJSONObject.ParseJSONValue(Response.ContentAsString) as TJSONObject;
+        try
+          Fields := JSONObj.GetValue('fields') as TJSONObject;
+          if Assigned(Fields) then
+          begin
+            // Nome da escola
+            Field := Fields.GetValue('nome_escola');
+            if Assigned(Field) then
+              edtNomeEscola.Text := (Field as TJSONObject).GetValue('stringValue').Value;
+
+            // Endereço
+            Field := Fields.GetValue('endereco');
+            if Assigned(Field) then
+              edtEndereco.Text := (Field as TJSONObject).GetValue('stringValue').Value;
+
+            // Telefone
+            Field := Fields.GetValue('telefone');
+            if Assigned(Field) then
+              edtTelefone.Text := (Field as TJSONObject).GetValue('stringValue').Value;
+
+            // Email
+            Field := Fields.GetValue('email');
+            if Assigned(Field) then
+              edtEmail.Text := (Field as TJSONObject).GetValue('stringValue').Value;
+
+            // Site
+            Field := Fields.GetValue('site');
+            if Assigned(Field) then
+              edtSite.Text := (Field as TJSONObject).GetValue('stringValue').Value;
+
+            // Título
+            Field := Fields.GetValue('titulo');
+            if Assigned(Field) then
+              edtTitulo.Text := (Field as TJSONObject).GetValue('stringValue').Value;
+
+            // Cor Primaria
+            Field := Fields.GetValue('cor_primaria');
+            if Assigned(Field) then
+              colorPrimaria.Selected := HexParaColor((Field as TJSONObject).GetValue('stringValue').Value)
+            else
+              colorPrimaria.Selected := $4caf50; // Padrao verde
+
+            // Cor Secundaria
+            Field := Fields.GetValue('cor_secundaria');
+            if Assigned(Field) then
+              colorSecundaria.Selected := HexParaColor((Field as TJSONObject).GetValue('stringValue').Value)
+            else
+              colorSecundaria.Selected := $2e7d32; // Padrao verde escuro
+
+            // Logo Base64
+            Field := Fields.GetValue('logo_base64');
+            if Assigned(Field) then
+            begin
+              FLogoBase64 := (Field as TJSONObject).GetValue('stringValue').Value;
+              if FLogoBase64 <> '' then
+                Base64ParaImagem(FLogoBase64, imgLogoPreview);
+            end;
+
+            MostrarStatus('Configurações carregadas com sucesso!', clGreen);
+          end;
+        finally
+          JSONObj.Free;
+        end;
+      end
+      else if Response.StatusCode = 404 then
+      begin
+        // Documento não existe ainda, inicia vazio
+        MostrarStatus('Nenhuma configuração encontrada. Crie uma nova.', $0000A5FF);
+      end
+      else
+      begin
+        MostrarStatus('Erro ao carregar: ' + IntToStr(Response.StatusCode), clRed);
+      end;
+    except
+      on E: Exception do
+        MostrarStatus('Erro: ' + E.Message, clRed);
+    end;
+  finally
+    HTTP.Free;
+  end;
+end;
+
+procedure TFormConfigBoletim.SalvarConfiguracoes;
+var
+  HTTP: TNetHTTPClient;
+  Response: IHTTPResponse;
+  URL: string;
+  JSONDoc, FieldsObj: TJSONObject;
+  Body: TStringStream;
+  CamposExistentes: Boolean;
+
+begin
+  if edtNomeEscola.Text = '' then
+  begin
+    ShowMessage('O nome da escola é obrigatório!');
+    edtNomeEscola.SetFocus;
+    Exit;
+  end;
+
+  MostrarStatus('Salvando configurações...', clBlue);
+
+  HTTP := TNetHTTPClient.Create(nil);
+  try
+    // Verificar se documento existe
+    URL := Format('https://firestore.googleapis.com/v1/projects/%s/databases/(default)/documents/config_boletim/%s?key=%s',
+      [FIREBASE_PROJECT, CONFIG_DOCUMENT_ID, FIREBASE_API_KEY]);
+
+    CamposExistentes := False;
+    try
+      Response := HTTP.Get(URL);
+      CamposExistentes := (Response.StatusCode = 200);
+    except
+    end;
+
+    // Criar JSON com os campos
+    JSONDoc := TJSONObject.Create;
+    FieldsObj := TJSONObject.Create;
+    try
+      FieldsObj.AddPair('nome_escola', TJSONObject.Create.AddPair('stringValue', edtNomeEscola.Text));
+      FieldsObj.AddPair('endereco', TJSONObject.Create.AddPair('stringValue', edtEndereco.Text));
+      FieldsObj.AddPair('telefone', TJSONObject.Create.AddPair('stringValue', edtTelefone.Text));
+      FieldsObj.AddPair('email', TJSONObject.Create.AddPair('stringValue', edtEmail.Text));
+      FieldsObj.AddPair('site', TJSONObject.Create.AddPair('stringValue', edtSite.Text));
+      FieldsObj.AddPair('titulo', TJSONObject.Create.AddPair('stringValue', edtTitulo.Text));
+      FieldsObj.AddPair('logo_base64', TJSONObject.Create.AddPair('stringValue', FLogoBase64));
+      FieldsObj.AddPair('cor_primaria', TJSONObject.Create.AddPair('stringValue', ColorParaHex(colorPrimaria.Selected)));
+      FieldsObj.AddPair('cor_secundaria', TJSONObject.Create.AddPair('stringValue', ColorParaHex(colorSecundaria.Selected)));
+      FieldsObj.AddPair('data_atualizacao', TJSONObject.Create.AddPair('timestampValue', FormatDateTime('yyyy-mm-dd"T"hh:nn:ss"Z"', Now)));
+
+      JSONDoc.AddPair('fields', FieldsObj);
+
+      Body := TStringStream.Create(JSONDoc.ToString, TEncoding.UTF8);
+      try
+        if CamposExistentes then
+        begin
+          // Atualizar (PATCH)
+          URL := Format('https://firestore.googleapis.com/v1/projects/%s/databases/(default)/documents/'+
+                        'config_boletim/%s?key=%s&updateMask.fieldPaths=nome_escola&updateMask.fieldPaths='+
+                        'endereco&updateMask.fieldPaths=telefone&updateMask.fieldPaths=email&updateMask.fieldPaths='+
+                        'site&updateMask.fieldPaths=titulo&updateMask.fieldPaths=logo_base64&updateMask.fieldPaths='+
+                        'cor_primaria&updateMask.fieldPaths=cor_secundaria&updateMask.fieldPaths=data_atualizacao',
+            [FIREBASE_PROJECT, CONFIG_DOCUMENT_ID, FIREBASE_API_KEY]);
+
+          Response := HTTP.Patch(URL, Body);
+        end
+        else
+        begin
+          // Criar novo (POST)
+          URL := Format('https://firestore.googleapis.com/v1/projects/%s/databases/(default)/documents/config_boletim?documentId=%s&key=%s',
+            [FIREBASE_PROJECT, CONFIG_DOCUMENT_ID, FIREBASE_API_KEY]);
+
+          Response := HTTP.Post(URL, Body);
+        end;
+
+        if (Response.StatusCode = 200) or (Response.StatusCode = 201) then
+        begin
+          MostrarStatus('Configurações salvas com sucesso!', clGreen);
+          ShowMessage('Configurações salvas com sucesso!');
+        end
+        else
+        begin
+          MostrarStatus('Erro ao salvar: ' + IntToStr(Response.StatusCode), clRed);
+          ShowMessage('Erro ao salvar: ' + Response.ContentAsString);
+        end;
+      finally
+        Body.Free;
+      end;
+    finally
+      JSONDoc.Free;
+    end;
+  finally
+    HTTP.Free;
+  end;
+end;
+
+function TFormConfigBoletim.ImagemParaBase64(const Caminho: string): string;
+var
+  Stream: TMemoryStream;
+  Encoding: TBase64Encoding;
+  Bytes: TBytes;
+begin
+  Result := '';
+  if not FileExists(Caminho) then Exit;
+
+  Stream := TMemoryStream.Create;
+  try
+    Stream.LoadFromFile(Caminho);
+    if Stream.Size > 0 then
+    begin
+      SetLength(Bytes, Stream.Size);
+      Stream.Read(Bytes[0], Stream.Size);
+      Encoding := TBase64Encoding.Create;
+      try
+        Result := Encoding.EncodeBytesToString(Bytes);
+      finally
+        Encoding.Free;
+      end;
+    end;
+  finally
+    Stream.Free;
+  end;
+end;
+
+function TFormConfigBoletim.DetectarTipoImagem(const Bytes: TBytes): string;
+begin
+  Result := '';
+  if Length(Bytes) < 4 then Exit;
+
+  // Verificar assinatura PNG: 89 50 4E 47
+  if (Bytes[0] = $89) and (Bytes[1] = $50) and (Bytes[2] = $4E) and (Bytes[3] = $47) then
+  begin
+    Result := 'PNG';
+    Exit;
+  end;
+
+  // Verificar assinatura JPEG: FF D8
+  if (Bytes[0] = $FF) and (Bytes[1] = $D8) then
+  begin
+    Result := 'JPEG';
+    Exit;
+  end;
+
+  // Verificar assinatura GIF: 47 49 46 38
+  if (Bytes[0] = $47) and (Bytes[1] = $49) and (Bytes[2] = $46) and (Bytes[3] = $38) then
+  begin
+    Result := 'GIF';
+    Exit;
+  end;
+
+  // Verificar assinatura BMP: 42 4D
+  if (Bytes[0] = $42) and (Bytes[1] = $4D) then
+  begin
+    Result := 'BMP';
+    Exit;
+  end;
+end;
+
+procedure TFormConfigBoletim.Base64ParaImagem(const Base64: string; Imagem: TImage);
+var
+  Encoding: TBase64Encoding;
+  Bytes: TBytes;
+  Stream: TMemoryStream;
+  JPEG: TJPEGImage;
+  PNG: TPNGImage;
+  TipoImagem: string;
+begin
+  if Base64 = '' then Exit;
+
+  Encoding := TBase64Encoding.Create;
+  try
+    Bytes := Encoding.DecodeStringToBytes(Base64);
+
+    // Detectar tipo de imagem pelo conteúdo
+    TipoImagem := DetectarTipoImagem(Bytes);
+
+    Stream := TMemoryStream.Create;
+    try
+      Stream.Write(Bytes[0], Length(Bytes));
+      Stream.Position := 0;
+
+      if TipoImagem = 'PNG' then
+      begin
+        PNG := TPNGImage.Create;
+        try
+          PNG.LoadFromStream(Stream);
+          Imagem.Picture.Assign(PNG);
+        except
+          on E: Exception do ; // Ignorar erro silenciosamente
+        end;
+        PNG.Free;
+      end
+      else if TipoImagem = 'JPEG' then
+      begin
+        JPEG := TJPEGImage.Create;
+        try
+          JPEG.LoadFromStream(Stream);
+          Imagem.Picture.Assign(JPEG);
+        except
+          on E: Exception do ; // Ignorar erro silenciosamente
+        end;
+        JPEG.Free;
+      end;
+    finally
+      Stream.Free;
+    end;
+  finally
+    Encoding.Free;
+  end;
+end;
+
+procedure TFormConfigBoletim.btnCarregarLogoClick(Sender: TObject);
+var
+  Caminho: string;
+begin
+  OpenDialogLogo.Filter := 'Imagens|*.jpg;*.jpeg;*.png;*.bmp;*.gif';
+  OpenDialogLogo.Title := 'Selecionar Logomarca';
+
+  if OpenDialogLogo.Execute then
+  begin
+    Caminho := OpenDialogLogo.FileName;
+
+    // Carregar preview
+    try
+      imgLogoPreview.Picture.LoadFromFile(Caminho);
+    except
+      ShowMessage('Erro ao carregar imagem!');
+      Exit;
+    end;
+
+    // Converter para Base64
+    FLogoBase64 := ImagemParaBase64(Caminho);
+
+    if FLogoBase64 <> '' then
+      MostrarStatus('Logo carregada: ' + ExtractFileName(Caminho), clGreen)
+    else
+      MostrarStatus('Erro ao converter imagem!', clRed);
+  end;
+end;
+
+procedure TFormConfigBoletim.btnSalvarClick(Sender: TObject);
+begin
+  SalvarConfiguracoes;
+end;
+
+procedure TFormConfigBoletim.btnCancelarClick(Sender: TObject);
+begin
+  Close;
+end;
+
+function TFormConfigBoletim.HexParaColor(const Hex: string): TColor;
+var
+  HexValue: string;
+  R, G, B: Byte;
+begin
+  HexValue := Hex;
+  if HexValue.StartsWith('#') then
+    HexValue := HexValue.Substring(1);
+
+  if HexValue.Length = 6 then
+  begin
+    R := StrToInt('$' + HexValue.Substring(0, 2));
+    G := StrToInt('$' + HexValue.Substring(2, 2));
+    B := StrToInt('$' + HexValue.Substring(4, 2));
+    Result := RGB(R, G, B);
+  end
+  else
+    Result := clGreen; // Padrao se invalido
+end;
+
+function TFormConfigBoletim.ColorParaHex(const Color: TColor): string;
+var
+  R, G, B: Byte;
+begin
+  R := GetRValue(Color);
+  G := GetGValue(Color);
+  B := GetBValue(Color);
+  Result := Format('#%.2x%.2x%.2x', [R, G, B]);
+end;
+
+procedure TFormConfigBoletim.btnResetCorPrimariaClick(Sender: TObject);
+begin
+  colorPrimaria.Selected := 5287756; // Verde padrao #4caf50
+end;
+
+procedure TFormConfigBoletim.btnResetCorSecundariaClick(Sender: TObject);
+begin
+  colorSecundaria.Selected := 3308846; // Verde escuro padrao #2e7d32
+end;
+
+procedure TFormConfigBoletim.cmbTemaCoresChange(Sender: TObject);
+const
+  // Cores dos temas (Primaria, Secundaria)
+  CORES_TEMAS: array[0..7, 0..1] of TColor = (
+    (5287756, 3308846),    // 0: Verde (#4caf50, #2e7d32)
+    (4279583, 2763429),    // 1: Azul (#4285f4, #2b5797)
+    (14483360, 10904320),  // 2: Vermelho (#dc3545, #a61d28)
+    (10144746, 6908265),   // 3: Roxo (#9b59b6, #693e7a)
+    (4240335, 2806784),    // 4: Laranja (#ff9800, #e65100)
+    (15644584, 12788944),  // 5: Rosa (#ee5ea2, #c3375b)
+    (2302755, 1572882),    // 6: Azul Escuro (#23238e, #180e68)
+    (7697741, 5131854)     // 7: Cinza (#757575, #4a4a4a)
+  );
+begin
+  if cmbTemaCores.ItemIndex >= 0 then
+  begin
+    colorPrimaria.Selected := CORES_TEMAS[cmbTemaCores.ItemIndex, 0];
+    colorSecundaria.Selected := CORES_TEMAS[cmbTemaCores.ItemIndex, 1];
+  end;
+end;
+
+end.

@@ -1,0 +1,241 @@
+unit USyncServiceAPI;
+
+interface
+
+uses
+  System.SysUtils, System.Classes, System.JSON, System.Net.HttpClient,
+  System.Net.URLClient, System.Net.HttpClientComponent, Data.DB,
+  FireDAC.Comp.Client, FireDAC.Comp.DataSet;
+
+const
+  { Credenciais Click Acadêmico }
+  FIREBASE_PROJECT = 'clickacademico-342da';
+  FIREBASE_API_KEY = 'AIzaSyA2-w2UfVhzN2prqJ2H0kecHYwLTC3XbkU';
+
+type
+  TSyncProgressEvent = procedure(const Msg: string; Success: Boolean) of object;
+
+  TSyncServiceAPI = class
+  private
+    FOnProgress: TSyncProgressEvent;
+    function GetBaseURL(const CollectionName: string = ''): string;
+    function DataSetToFirestoreJSON(DataSet: TDataSet): TJSONObject;
+    procedure Log(const Msg: string; Success: Boolean = True);
+  public
+    { Sincroniza um DataSet inteiro para uma coleção específica }
+    procedure EnviarDados(DataSet: TDataSet; const CollectionName: string);
+    
+    { Remove dados baseados em um filtro (ex: por turma) para evitar duplicatas }
+    procedure LimparColecaoPorFiltro(const CollectionName, FieldName, FieldValue: string);
+    
+    { Utilitário para baixar dados da nuvem para um MemTable local }
+    procedure DownloadParaMemTable(MemTable: TFDMemTable; const CollectionName: string);
+
+    property OnProgress: TSyncProgressEvent read FOnProgress write FOnProgress;
+  end;
+
+implementation
+
+{ TSyncServiceAPI }
+
+function TSyncServiceAPI.GetBaseURL(const CollectionName: string): string;
+begin
+  Result := 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT + '/databases/(default)/documents';
+  if CollectionName <> '' then
+    Result := Result + '/' + CollectionName;
+end;
+
+procedure TSyncServiceAPI.Log(const Msg: string; Success: Boolean);
+begin
+  if Assigned(FOnProgress) then
+    FOnProgress(Msg, Success);
+end;
+
+function TSyncServiceAPI.DataSetToFirestoreJSON(DataSet: TDataSet): TJSONObject;
+var
+  FieldsObj, ValueObj: TJSONObject;
+  i: Integer;
+  FieldName: string;
+begin
+  FieldsObj := TJSONObject.Create;
+  
+  for i := 0 to DataSet.FieldCount - 1 do
+  begin
+    if DataSet.Fields[i].IsNull then Continue;
+
+    // Limpeza do nome do campo (Firestore não aceita caracteres especiais em nomes de chaves)
+    FieldName := DataSet.Fields[i].FieldName.ToLower;
+    ValueObj := TJSONObject.Create;
+
+    case DataSet.Fields[i].DataType of
+      ftInteger, ftSmallint, ftShortint, ftLargeint:
+        ValueObj.AddPair('integerValue', DataSet.Fields[i].AsLargeInt.ToString);
+      
+      ftFloat, ftCurrency, ftBCD, ftFMTBcd:
+        ValueObj.AddPair('doubleValue', TJSONNumber.Create(DataSet.Fields[i].AsFloat));
+      
+      ftBoolean:
+        ValueObj.AddPair('booleanValue', TJSONBoolean.Create(DataSet.Fields[i].AsBoolean));
+
+      ftDateTime, ftDate, ftTime:
+        ValueObj.AddPair('timestampValue', FormatDateTime('yyyy-mm-dd"T"hh:nn:ss"Z"', DataSet.Fields[i].AsDateTime));
+
+      else
+        ValueObj.AddPair('stringValue', DataSet.Fields[i].AsString);
+    end;
+    
+    FieldsObj.AddPair(FieldName, ValueObj);
+  end;
+
+  Result := TJSONObject.Create;
+  Result.AddPair('fields', FieldsObj);
+end;
+
+procedure TSyncServiceAPI.EnviarDados(DataSet: TDataSet; const CollectionName: string);
+var
+  HTTP: TNetHTTPClient;
+  JSONDoc: TJSONObject;
+  RequestStream: TStringStream;
+  Response: IHTTPResponse;
+  URL: string;
+begin
+  if not Assigned(DataSet) or (not DataSet.Active) then
+  begin
+    Log('Dataset inativo ou inexistente.', False);
+    Exit;
+  end;
+
+  HTTP := TNetHTTPClient.Create(nil);
+  try
+    HTTP.ContentType := 'application/json';
+    URL := GetBaseURL(CollectionName) + '?key=' + FIREBASE_API_KEY;
+    
+    DataSet.First;
+    while not DataSet.Eof do
+    begin
+      JSONDoc := DataSetToFirestoreJSON(DataSet);
+      RequestStream := TStringStream.Create(JSONDoc.ToJSON, TEncoding.UTF8);
+      try
+        Response := HTTP.Post(URL, RequestStream);
+        if Response.StatusCode in [200, 201] then
+          Log('Enviado: ' + DataSet.RecNo.ToString)
+        else
+          Log('Erro no registro ' + DataSet.RecNo.ToString + ': ' + Response.StatusText, False);
+      finally
+        RequestStream.Free;
+        JSONDoc.Free;
+      end;
+      DataSet.Next;
+    end;
+  finally
+    HTTP.Free;
+  end;
+end;
+
+procedure TSyncServiceAPI.LimparColecaoPorFiltro(const CollectionName, FieldName, FieldValue: string);
+var
+  HTTP: TNetHTTPClient;
+  URL, QueryJSON, DocPath: string;
+  Response: IHTTPResponse;
+  RequestStream: TStringStream;
+  JSONRes: TJSONArray;
+  i: Integer;
+  Item: TJSONObject;
+begin
+  HTTP := TNetHTTPClient.Create(nil);
+  try
+    HTTP.ContentType := 'application/json';
+    URL := GetBaseURL + ':runQuery?key=' + FIREBASE_API_KEY;
+
+    { Query estruturada para deletar apenas registros específicos }
+    QueryJSON := 
+      '{ "structuredQuery": { ' +
+      '  "from": [{"collectionId": "' + CollectionName + '"}], ' +
+      '  "where": { "fieldFilter": { ' +
+      '    "field": {"fieldPath": "' + FieldName + '"}, ' +
+      '    "op": "EQUAL", "value": {"stringValue": "' + FieldValue + '"} ' +
+      '  } } ' +
+      '} }';
+
+    RequestStream := TStringStream.Create(QueryJSON, TEncoding.UTF8);
+    Response := HTTP.Post(URL, RequestStream);
+    
+    if Response.StatusCode = 200 then
+    begin
+      JSONRes := TJSONObject.ParseJSONValue(Response.ContentAsString) as TJSONArray;
+      if Assigned(JSONRes) then
+      try
+        for i := 0 to JSONRes.Count - 1 do
+        begin
+          if (JSONRes.Items[i] as TJSONObject).GetValue('document') <> nil then
+          begin
+             Item := (JSONRes.Items[i] as TJSONObject).GetValue('document') as TJSONObject;
+             DocPath := Item.GetValue('name').Value;
+             // DELETE individual do Firestore
+             HTTP.Delete('https://firestore.googleapis.com/v1/' + DocPath + '?key=' + FIREBASE_API_KEY);
+          end;
+        end;
+        Log('Limpeza concluída para ' + FieldName + '=' + FieldValue);
+      finally
+        JSONRes.Free;
+      end;
+    end;
+  finally
+    HTTP.Free;
+    RequestStream.Free;
+  end;
+end;
+
+procedure TSyncServiceAPI.DownloadParaMemTable(MemTable: TFDMemTable; const CollectionName: string);
+var
+  HTTP: TNetHTTPClient;
+  Response: IHTTPResponse;
+  JSONRes, Doc, Fields, ValObj: TJSONObject;
+  Documents: TJSONArray;
+  i, j: Integer;
+  FName, FValue: string;
+begin
+  HTTP := TNetHTTPClient.Create(nil);
+  try
+    Response := HTTP.Get(GetBaseURL(CollectionName) + '?key=' + FIREBASE_API_KEY);
+    if Response.StatusCode = 200 then
+    begin
+      JSONRes := TJSONObject.ParseJSONValue(Response.ContentAsString) as TJSONObject;
+      if Assigned(JSONRes) then
+      try
+        Documents := JSONRes.GetValue('documents') as TJSONArray;
+        if Assigned(Documents) then
+        begin
+          if not MemTable.Active then MemTable.CreateDataSet;
+          MemTable.EmptyDataSet;
+
+          for i := 0 to Documents.Count - 1 do
+          begin
+            Doc := Documents.Items[i] as TJSONObject;
+            Fields := Doc.GetValue('fields') as TJSONObject;
+            
+            MemTable.Append;
+            for j := 0 to Fields.Count - 1 do
+            begin
+              FName := Fields.Pairs[j].JsonString.Value;
+              ValObj := Fields.Pairs[j].JsonValue as TJSONObject;
+              if ValObj.Count > 0 then
+              begin
+                FValue := ValObj.Pairs[0].JsonValue.Value;
+                if MemTable.FindField(FName) <> nil then
+                  MemTable.FieldByName(FName).AsString := FValue;
+              end;
+            end;
+            MemTable.Post;
+          end;
+        end;
+      finally
+        JSONRes.Free;
+      end;
+    end;
+  finally
+    HTTP.Free;
+  end;
+end;
+
+end.

@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>2026/04/23 01:31:00.000.341,=C:\Users\DPCS\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
+    <Transaction>2026/04/23 01:31:27.000.469,=C:\Users\DPCS\Documents\Windsurf\Boletim Ranieri\delphi\UExportarBoletim.pas</Transaction>
+    <Transaction>2026/04/23 01:32:40.000.048,C:\Users\DPCS\Documents\Embarcadero\Studio\Projects\Project1.dproj=C:\Users\DPCS\Documents\Windsurf\Boletim Ranieri\delphi\exportador_boletim.dproj</Transaction>
+    <Transaction>2026/04/23 01:33:45.000.356,=C:\Users\DPCS\Documents\Windsurf\Boletim Ranieri\delphi\USyncService.pas</Transaction>
+    <Transaction>2026/04/23 02:12:38.000.588,=C:\Users\DPCS\Documents\Windsurf\Boletim Ranieri\delphi\UCadastroLoginAlunos.pas</Transaction>
+    <Transaction>2026/04/23 02:44:45.251,=C:\Users\DPCS\Documents\Windsurf\Boletim Ranieri\delphi\UFormPrincipal.pas</Transaction>
+    <Transaction>2026/04/24 01:00:08.075,=C:\Users\DPCS\Documents\Windsurf\Boletim Ranieri\delphi\UConfigBoletim.pas</Transaction>
+    <Transaction>2026/04/24 03:45:37.784,=C:\Users\DPCS\Documents\Windsurf\Boletim Ranieri\delphi\UCadastroLoginProfessores.pas</Transaction>
+    <Transaction>2026/04/24 10:08:02.744,C:\Users\DPCS\Documents\Windsurf\Boletim Ranieri\delphi\UCadastroLoginProfessores.pas=</Transaction>
+    <Transaction>2026/04/24 10:08:10.770,=C:\Users\DPCS\Documents\Windsurf\Boletim Ranieri\delphi\UCadastroLoginProfessores.pas</Transaction>
+    <Transaction>2026/04/24 13:12:07.055,=C:\Users\DPCS\Documents\Windsurf\Boletim Ranieri\delphi\UExportarDados.pas</Transaction>
+    <Transaction>2026/04/24 17:55:53.110,=C:\Users\DPCS\Documents\Windsurf\Boletim Ranieri\delphi\USelecionarAluno.pas</Transaction>
+  </Transactions>
+</BorlandProject>

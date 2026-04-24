@@ -1,0 +1,194 @@
+﻿unit UReplicator;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls,
+  FireDAC.Stan.Intf, FireDAC.Stan.Option, FireDAC.Stan.Param, FireDAC.Stan.Error,
+  FireDAC.DatS, FireDAC.Phys.Intf, FireDAC.DApt.Intf, FireDAC.Stan.Async,
+  FireDAC.DApt, FireDAC.UI.Intf, FireDAC.Stan.Def, FireDAC.Stan.Pool,
+  FireDAC.Phys, FireDAC.Phys.FB, FireDAC.Phys.FBDef, FireDAC.VCLUI.Wait,
+  Data.DB, FireDAC.Comp.Client, FireDAC.Comp.DataSet,
+  System.JSON, System.Net.HttpClient, System.Net.URLClient, System.Net.HttpClientComponent,
+  FireDAC.Phys.IBBase;
+
+type
+  TFormReplicator = class(TForm)
+    FDConnection: TFDConnection;
+    FDQuery: TFDQuery;
+    FDPhysFBDriverLink1: TFDPhysFBDriverLink;
+    pnlHeader: TPanel;
+    btnReplicar: TButton;
+    edtCodTurma: TEdit;
+    lblTurma: TLabel;
+    edtCaminhoFDB: TEdit;
+    lblCaminho: TLabel;
+    btnSelFDB: TButton;
+    memLog: TMemo;
+    OpenDialogFDB: TOpenDialog;
+    lblStatus: TLabel;
+    FDQuery1: TFDQuery;
+    procedure btnSelFDBClick(Sender: TObject);
+    procedure btnReplicarClick(Sender: TObject);
+  private
+    const 
+      FIREBASE_API_KEY = 'sua_chave_api_aqui';
+      FIREBASE_PROJECT = 'clickacademico-342da';
+    procedure AddLog(const Msg: string);
+    function EnviarParaFirestore(JSONDoc: TJSONObject): Boolean;
+    function MontarJSONFirestore: TJSONObject;
+  public
+  end;
+
+var
+  FormReplicator: TFormReplicator;
+
+implementation
+
+{$R *.dfm}
+
+procedure TFormReplicator.AddLog(const Msg: string);
+begin
+  TThread.Queue(nil, procedure
+  begin
+    memLog.Lines.Add(FormatDateTime('hh:nn:ss', Now) + ' - ' + Msg);
+    // Scroll automático para o fim
+    SendMessage(memLog.Handle, WM_VSCROLL, SB_BOTTOM, 0);
+  end);
+end;
+
+procedure TFormReplicator.btnSelFDBClick(Sender: TObject);
+begin
+  // Abre o diálogo para selecionar o banco de dados de origem
+  if OpenDialogFDB.Execute then
+  begin
+    edtCaminhoFDB.Text := OpenDialogFDB.FileName;
+    AddLog('Banco selecionado: ' + OpenDialogFDB.FileName);
+  end;
+end;
+
+procedure TFormReplicator.btnReplicarClick(Sender: TObject);
+var
+  Total: Integer;
+begin
+  // Validações básicas
+  if not FileExists(edtCaminhoFDB.Text) then
+  begin
+    MessageDlg('Por favor, selecione um ficheiro .FDB válido primeiro.', mtError, [mbOK], 0);
+    Exit;
+  end;
+
+  btnReplicar.Enabled := False;
+  memLog.Clear;
+  
+  try
+    AddLog('A conectar ao Firebird...');
+    FDConnection.Close;
+    FDConnection.Params.Database := edtCaminhoFDB.Text;
+    FDConnection.Connected := True;
+
+    AddLog('A carregar dados dos alunos (Turma ' + edtCodTurma.Text + ')...');
+    FDQuery.Close;
+    FDQuery.ParamByName('CodTur').AsInteger := StrToIntDef(edtCodTurma.Text, 1);
+    FDQuery.Open;
+
+    if FDQuery.IsEmpty then
+    begin
+      AddLog('Aviso: Nenhum dado encontrado na consulta.');
+      Exit;
+    end;
+
+    Total := 0;
+    while not FDQuery.Eof do
+    begin
+      Inc(Total);
+      lblStatus.Caption := Format('Sincronizando: %d / %d', [Total, FDQuery.RecordCount]);
+      
+      // Envio síncrono para garantir a ordem (ou use thread se for muito volume)
+      if EnviarParaFirestore(MontarJSONFirestore) then
+        AddLog('Sincronizado: ' + FDQuery.FieldByName('Aluno').AsString)
+      else
+        AddLog('Erro ao enviar Aluno: ' + FDQuery.FieldByName('Aluno').AsString);
+
+      FDQuery.Next;
+      Application.ProcessMessages;
+    end;
+
+    AddLog('--- Sincronização Finalizada ---');
+    lblStatus.Caption := 'Sincronização concluída com sucesso.';
+  except
+    on E: Exception do 
+    begin
+      AddLog('Falha: ' + E.Message);
+      MessageDlg('Erro na operação: ' + E.Message, mtError, [mbOK], 0);
+    end;
+  end;
+  
+  btnReplicar.Enabled := True;
+end;
+
+function TFormReplicator.MontarJSONFirestore: TJSONObject;
+var
+  Fields, Item: TJSONObject;
+begin
+  // Estrutura exigida pela REST API do Firestore
+  Fields := TJSONObject.Create;
+  
+  // Nome do Aluno (Join na tabela Aluno)
+  Item := TJSONObject.Create;
+  Item.AddPair('stringValue', FDQuery.FieldByName('Aluno').AsString);
+  Fields.AddPair('aluno_nome', Item);
+
+  // Disciplina (Join na tabela Disciplina)
+  Item := TJSONObject.Create;
+  Item.AddPair('stringValue', FDQuery.FieldByName('Disciplina').AsString);
+  Fields.AddPair('disciplina_nome', Item);
+
+  // Média Bimestre 1
+  Item := TJSONObject.Create;
+  Item.AddPair('doubleValue', TJSONNumber.Create(FDQuery.FieldByName('Bim1').AsFloat));
+  Fields.AddPair('nota_bim1', Item);
+
+  // Situação por extenso (Join na tabela Situacao)
+  Item := TJSONObject.Create;
+  Item.AddPair('stringValue', FDQuery.FieldByName('Situacao').AsString);
+  Fields.AddPair('status_final', Item);
+
+  Result := TJSONObject.Create;
+  Result.AddPair('fields', Fields);
+end;
+
+function TFormReplicator.EnviarParaFirestore(JSONDoc: TJSONObject): Boolean;
+var
+  HTTP: TNetHTTPClient;
+  Source: TStringStream;
+  Response: IHTTPResponse;
+  URL: string;
+begin
+  Result := False;
+  HTTP := TNetHTTPClient.Create(nil);
+  Source := TStringStream.Create(JSONDoc.ToJSON, TEncoding.UTF8);
+  try
+    { Endpoint REST do Firestore com a API KEY no parâmetro URL }
+    URL := 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT + 
+           '/databases/(default)/documents/notas_alunos?key=' + FIREBASE_API_KEY;
+    
+    HTTP.ContentType := 'application/json';
+    try
+      Response := HTTP.Post(URL, Source);
+      Result := (Response.StatusCode in [200, 201]);
+      
+      if not Result then
+        AddLog('Resposta Firestore (' + Response.StatusCode.ToString + '): ' + Response.ContentAsString);
+    except
+      on E: Exception do AddLog('Erro na requisição REST: ' + E.Message);
+    end;
+  finally
+    Source.Free;
+    HTTP.Free;
+    JSONDoc.Free; // Importante: Libera o JSON montado
+  end;
+end;
+
+end.

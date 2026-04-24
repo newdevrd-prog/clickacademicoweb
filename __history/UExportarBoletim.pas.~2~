@@ -1,0 +1,182 @@
+unit UExportarBoletim;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.ComCtrls, Vcl.Grids,
+  Vcl.DBGrids, Data.DB, FireDAC.Comp.Client, FireDAC.Stan.Intf, FireDAC.Stan.Option,
+  FireDAC.Stan.Error, FireDAC.UI.Intf, FireDAC.Phys.Intf, FireDAC.Stan.Def, FireDAC.Stan.Pool,
+  FireDAC.Stan.Async, FireDAC.Phys, FireDAC.Phys.FB, FireDAC.Phys.FBDef, FireDAC.VCLUI.Wait,
+  FireDAC.Comp.DataSet, FireDAC.Stan.Param, FireDAC.DatS, FireDAC.DApt.Intf, FireDAC.DApt,
+  USyncServiceAPI, FireDAC.Phys.IBBase;
+
+type
+  TFormExportarBoletim = class(TForm)
+    PanelTop: TPanel;
+    btnExportar: TButton;
+    btnFechar: TButton;
+    PanelLog: TPanel;
+    MemoLog: TMemo;
+    Splitter1: TSplitter;
+    PanelGrid: TPanel;
+    DBGridEnvios: TDBGrid;
+    PanelBotoesGrid: TPanel;
+    btnReverter: TButton;
+    btnAtualizar: TButton;
+    lblTitulo: TLabel;
+    FDConnection: TFDConnection;
+    FDQueryBoletim: TFDQuery;
+    FDQueryEnvios: TFDQuery;
+    DataSourceEnvios: TDataSource;
+    FDPhysFBDriverLink: TFDPhysFBDriverLink;
+    procedure btnFecharClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure btnExportarClick(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+    procedure btnAtualizarClick(Sender: TObject);
+    procedure btnReverterClick(Sender: TObject);
+  private
+    FSyncService: TSyncServiceAPI;
+    procedure Log(const Msg: string; Success: Boolean = True);
+    procedure OnSyncProgress(const Msg: string; Success: Boolean);
+    procedure ConfigurarConexao;
+    procedure CarregarGridEnvios;
+    function CriarEnvioFirebase: string;
+    procedure ExportarDados(const IdEnvioFirebase: string);
+    procedure ReverterEnvio(const IdEnvioFirebase: string);
+  public
+    { Public declarations }
+  end;
+
+var
+  FormExportarBoletim: TFormExportarBoletim;
+
+implementation
+
+{$R *.dfm}
+
+procedure TFormExportarBoletim.FormCreate(Sender: TObject);
+begin
+  FSyncService := TSyncServiceAPI.Create;
+  FSyncService.OnProgress := OnSyncProgress;
+  ConfigurarConexao;
+  CarregarGridEnvios;
+  Log('Sistema iniciado. Aguardando comando...');
+end;
+
+procedure TFormExportarBoletim.FormDestroy(Sender: TObject);
+begin
+  FSyncService.Free;
+end;
+
+procedure TFormExportarBoletim.ConfigurarConexao;
+begin
+  FDConnection.Params.DriverID := 'FB';
+  FDConnection.Params.Database := 'C:\ClickAcademico\ClickAcademico.fdb';
+  FDConnection.Params.UserName := 'SYSDBA';
+  FDConnection.Params.Password := 'masterkey';
+  FDConnection.Params.Add('Protocol=TCPIP');
+  FDConnection.Params.Add('Server=localhost');
+  FDConnection.Params.Add('Port=3050');
+  FDConnection.LoginPrompt := False;
+  
+  try
+    FDConnection.Connected := True;
+    Log('Conectado ao Firebird com sucesso!');
+  except
+    on E: Exception do
+    begin
+      Log('Erro ao conectar ao Firebird: ' + E.Message, False);
+      raise;
+    end;
+  end;
+end;
+
+procedure TFormExportarBoletim.Log(const Msg: string; Success: Boolean);
+begin
+  if Success then
+    MemoLog.Lines.Add(Format('[%s] %s', [FormatDateTime('hh:nn:ss', Now), Msg]))
+  else
+    MemoLog.Lines.Add(Format('[%s] ERRO: %s', [FormatDateTime('hh:nn:ss', Now), Msg]));
+  Application.ProcessMessages;
+end;
+
+procedure TFormExportarBoletim.OnSyncProgress(const Msg: string; Success: Boolean);
+begin
+  Log(Msg, Success);
+end;
+
+procedure TFormExportarBoletim.CarregarGridEnvios;
+begin
+  FDQueryEnvios.Close;
+  FDQueryEnvios.SQL.Text := 
+    'SELECT ID, DATA_ENVIO, ANO_LETIVO, ID_ENVIO_FIREBASE, QUANTIDADE_REGISTROS, TURMA_CODIGO, STATUS ' +
+    'FROM ENVIO_BOLETINS ORDER BY DATA_ENVIO DESC';
+  try
+    FDQueryEnvios.Open;
+    Log('Grid de envios atualizado.');
+  except
+    on E: Exception do
+      Log('Tabela ENVIO_BOLETINS nao existe ainda. Sera criada no primeiro envio. ' + E.Message, False);
+  end;
+end;
+
+function TFormExportarBoletim.CriarEnvioFirebase: string;
+begin
+  // Implementado na proxima etapa
+  Result := '';
+  Log('Funcao CriarEnvioFirebase sera implementada na Etapa 2');
+end;
+
+procedure TFormExportarBoletim.ExportarDados(const IdEnvioFirebase: string);
+begin
+  // Implementado na proxima etapa
+  Log('Funcao ExportarDados sera implementada na Etapa 2');
+end;
+
+procedure TFormExportarBoletim.ReverterEnvio(const IdEnvioFirebase: string);
+begin
+  // Implementado na proxima etapa
+  Log('Funcao ReverterEnvio sera implementada na Etapa 3');
+end;
+
+procedure TFormExportarBoletim.btnExportarClick(Sender: TObject);
+begin
+  Log('Iniciando exportacao...');
+  btnExportar.Enabled := False;
+  try
+    // Etapa 2 implementara o fluxo completo
+    Log('Fluxo de exportacao sera implementado na Etapa 2');
+  finally
+    btnExportar.Enabled := True;
+    CarregarGridEnvios;
+  end;
+end;
+
+procedure TFormExportarBoletim.btnReverterClick(Sender: TObject);
+begin
+  if FDQueryEnvios.IsEmpty then
+  begin
+    Log('Nenhum envio selecionado.', False);
+    Exit;
+  end;
+  
+  if MessageDlg('Deseja reverter o envio selecionado?', mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+  begin
+    // Etapa 3 implementara a reversao
+    Log('Funcao de reversao sera implementada na Etapa 3');
+  end;
+end;
+
+procedure TFormExportarBoletim.btnAtualizarClick(Sender: TObject);
+begin
+  CarregarGridEnvios;
+end;
+
+procedure TFormExportarBoletim.btnFecharClick(Sender: TObject);
+begin
+  Close;
+end;
+
+end.

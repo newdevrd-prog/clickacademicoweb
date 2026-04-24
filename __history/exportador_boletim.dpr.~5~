@@ -1,0 +1,21 @@
+program exportador_boletim;
+
+uses
+  Vcl.Forms,
+  UExportarBoletim in 'UExportarBoletim.pas' {FormExportarBoletim},
+  USyncService in 'USyncService.pas',
+  UCadastroLoginAlunos in 'UCadastroLoginAlunos.pas' {FormCadastroLoginAlunos},
+  UFormPrincipal in 'UFormPrincipal.pas' {FormPrincipal},
+  UConfigBoletim in 'UConfigBoletim.pas' {FormConfigBoletim};
+
+{$R *.res}
+
+begin
+  Application.Initialize;
+  Application.MainFormOnTaskbar := True;
+  Application.CreateForm(TFormPrincipal, FormPrincipal);
+  Application.CreateForm(TFormExportarBoletim, FormExportarBoletim);
+  Application.CreateForm(TFormCadastroLoginAlunos, FormCadastroLoginAlunos);
+  Application.CreateForm(TFormConfigBoletim, FormConfigBoletim);
+  Application.Run;
+end.

@@ -1,0 +1,15 @@
+program exportador_boletim;
+
+uses
+  Vcl.Forms,
+  UExportarBoletim in 'UExportarBoletim.pas' {FormExportarBoletim},
+  USyncService in 'USyncService.pas';
+
+{$R *.res}
+
+begin
+  Application.Initialize;
+  Application.MainFormOnTaskbar := True;
+  Application.CreateForm(TFormExportarBoletim, FormExportarBoletim);
+  Application.Run;
+end.

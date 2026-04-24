@@ -1,0 +1,826 @@
+unit UExportarBoletim;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.ComCtrls, Vcl.Grids,
+  Vcl.DBGrids, Data.DB, FireDAC.Comp.Client, FireDAC.Stan.Intf, FireDAC.Stan.Option,
+  FireDAC.Stan.Error, FireDAC.UI.Intf, FireDAC.Phys.Intf, FireDAC.Stan.Def, FireDAC.Stan.Pool,
+  FireDAC.Stan.Async, FireDAC.Phys, FireDAC.Phys.FB, FireDAC.Phys.FBDef, FireDAC.VCLUI.Wait,
+  FireDAC.Comp.DataSet, FireDAC.Stan.Param, FireDAC.DatS, FireDAC.DApt.Intf, FireDAC.DApt,
+  FireDAC.Phys.IBBase, System.JSON, System.Net.HttpClient, System.Net.URLClient,
+  System.Net.HttpClientComponent, System.DateUtils, USyncService;
+
+type
+  TFormExportarBoletim = class(TForm)
+    PanelTop: TPanel;
+    btnExportar: TButton;
+    btnFechar: TButton;
+    PanelLog: TPanel;
+    MemoLog: TMemo;
+    Splitter1: TSplitter;
+    PanelGrid: TPanel;
+    DBGridEnvios: TDBGrid;
+    PanelBotoesGrid: TPanel;
+    btnReverter: TButton;
+    btnAtualizar: TButton;
+    lblTitulo: TLabel;
+    lblAnoLetivo: TLabel;
+    cmbAnoLetivo: TComboBox;
+    ProgressBar: TProgressBar;
+    lblProgresso: TLabel;
+    FDConnection: TFDConnection;
+    FDQueryBoletim: TFDQuery;
+    FDQueryEnvios: TFDQuery;
+    DataSourceEnvios: TDataSource;
+    FDPhysFBDriverLink: TFDPhysFBDriverLink;
+    procedure btnFecharClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure btnExportarClick(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+    procedure btnAtualizarClick(Sender: TObject);
+    procedure btnReverterClick(Sender: TObject);
+  private
+    FSyncService: TSyncServiceAPI;
+    procedure Log(const Msg: string; Success: Boolean = True);
+    procedure OnSyncProgress(const Msg: string; Success: Boolean);
+    procedure ConfigurarConexao;
+    procedure CarregarGridEnvios;
+    function CriarEnvioFirebase: string;
+    procedure ExportarDados(const IdEnvioFirebase: string; out Quantidade: Integer);
+    procedure ReverterEnvio(const IdEnvioFirebase: string);
+    procedure CriarTabelaEnvioBoletins;
+    procedure SalvarEnvioLocal(const IdEnvioFirebase: string; Quantidade: Integer);
+    procedure ExecutarQueryBoletim(const AnoLetivo: Integer);
+    procedure PreencherComboAnoLetivo;
+    function ObterAnoLetivoSelecionado: Integer;
+    procedure ExportarDadosComProgresso(const IdEnvioFirebase: string; out Quantidade: Integer; TotalRegistros: Integer; AnoLetivo: Integer);
+  public
+    { Public declarations }
+  end;
+
+var
+  FormExportarBoletim: TFormExportarBoletim;
+
+implementation
+
+{$R *.dfm}
+
+
+procedure TFormExportarBoletim.FormCreate(Sender: TObject);
+begin
+  FSyncService := TSyncServiceAPI.Create;
+  FSyncService.OnProgress := OnSyncProgress;
+  ConfigurarConexao;
+  CriarTabelaEnvioBoletins;
+  PreencherComboAnoLetivo;
+  CarregarGridEnvios;
+  Log('Sistema iniciado. Aguardando comando...');
+end;
+
+procedure TFormExportarBoletim.PreencherComboAnoLetivo;
+var
+  AnoAtual, Ano: Integer;
+  AnoInicial: Integer;
+begin
+  cmbAnoLetivo.Items.Clear;
+
+  AnoAtual := YearOf(Now);
+  AnoInicial := 2025;
+
+  for Ano := AnoInicial to AnoAtual do
+    cmbAnoLetivo.Items.Add(IntToStr(Ano));
+
+  // Selecionar ano atual
+  if cmbAnoLetivo.Items.Count > 0 then
+    cmbAnoLetivo.ItemIndex := cmbAnoLetivo.Items.Count - 1;
+end;
+
+function TFormExportarBoletim.ObterAnoLetivoSelecionado: Integer;
+begin
+  if cmbAnoLetivo.ItemIndex >= 0 then
+    Result := StrToInt(cmbAnoLetivo.Items[cmbAnoLetivo.ItemIndex])
+  else
+    Result := YearOf(Now);
+end;
+
+procedure TFormExportarBoletim.FormDestroy(Sender: TObject);
+begin
+  FSyncService.Free;
+end;
+
+procedure TFormExportarBoletim.ConfigurarConexao;
+begin
+  FDConnection.Params.DriverID := 'FB';
+  FDConnection.Params.Database := 'C:\ClickAcademico\ClickAcademico.fdb';
+  FDConnection.Params.UserName := 'SYSDBA';
+  FDConnection.Params.Password := 'masterkey';
+  FDConnection.Params.Add('Protocol=TCPIP');
+  FDConnection.Params.Add('Server=localhost');
+  FDConnection.Params.Add('Port=3050');
+  FDConnection.LoginPrompt := False;
+  
+  try
+    FDConnection.Connected := True;
+    Log('Conectado ao Firebird com sucesso!');
+  except
+    on E: Exception do
+    begin
+      Log('Erro ao conectar ao Firebird: ' + E.Message, False);
+      raise;
+    end;
+  end;
+end;
+
+procedure TFormExportarBoletim.Log(const Msg: string; Success: Boolean);
+begin
+  if Success then
+    MemoLog.Lines.Add(Format('[%s] %s', [FormatDateTime('hh:nn:ss', Now), Msg]))
+  else
+    MemoLog.Lines.Add(Format('[%s] ERRO: %s', [FormatDateTime('hh:nn:ss', Now), Msg]));
+  Application.ProcessMessages;
+end;
+
+procedure TFormExportarBoletim.OnSyncProgress(const Msg: string; Success: Boolean);
+begin
+  Log(Msg, Success);
+end;
+
+procedure TFormExportarBoletim.CarregarGridEnvios;
+begin
+  try
+    FDQueryEnvios.Close;
+    FDQueryEnvios.SQL.Text := 
+      'SELECT ID, DATA_ENVIO, ANO_LETIVO, ID_ENVIO_FIREBASE, QUANTIDADE_REGISTROS, TURMA_CODIGO, STATUS ' +
+      'FROM ENVIO_BOLETINS ORDER BY DATA_ENVIO DESC';
+    FDQueryEnvios.Open;
+    Log('Grid de envios atualizado. Registros: ' + FDQueryEnvios.RecordCount.ToString);
+  except
+    on E: Exception do
+    begin
+      // Tabela nao existe ainda, nao carregar nada
+      Log('Grid nao carregado (tabela nao existe): ' + E.Message, False);
+    end;
+  end;
+end;
+
+procedure TFormExportarBoletim.CriarTabelaEnvioBoletins;
+const
+  SQL_CRIAR_TABELA =
+    'CREATE TABLE ENVIO_BOLETINS (' +
+    '  ID INTEGER PRIMARY KEY, ' +
+    '  DATA_ENVIO TIMESTAMP DEFAULT CURRENT_TIMESTAMP, ' +
+    '  ANO_LETIVO INTEGER, ' +
+    '  ID_ENVIO_FIREBASE VARCHAR(100), ' +
+    '  QUANTIDADE_REGISTROS INTEGER, ' +
+    '  TURMA_CODIGO INTEGER, ' +
+    '  STATUS VARCHAR(20) DEFAULT ''ENVIADO'' ' +
+    ')';
+  SQL_CRIAR_GENERATOR = 'CREATE SEQUENCE GEN_ENVIO_BOLETINS_ID';
+  SQL_CRIAR_TRIGGER =
+    'CREATE TRIGGER TR_ENVIO_BOLETINS_BI FOR ENVIO_BOLETINS ' +
+    'ACTIVE BEFORE INSERT AS ' +
+    'BEGIN ' +
+    '  IF (NEW.ID IS NULL) THEN ' +
+    '    NEW.ID = NEXT VALUE FOR GEN_ENVIO_BOLETINS_ID; ' +
+    'END';
+  SQL_CHECK_TABELA = 'SELECT 1 FROM RDB$RELATIONS WHERE RDB$RELATION_NAME = ''ENVIO_BOLETINS''';
+var
+  CheckQuery: TFDQuery;
+  TabelaExiste: Boolean;
+begin
+  TabelaExiste := False;
+  
+  // Verifica se tabela ja existe usando TFDQuery (Open) ao inves de ExecSQL
+  CheckQuery := TFDQuery.Create(nil);
+  try
+    CheckQuery.Connection := FDConnection;
+    CheckQuery.SQL.Text := SQL_CHECK_TABELA;
+    try
+      CheckQuery.Open;
+      TabelaExiste := not CheckQuery.IsEmpty;
+      CheckQuery.Close;
+    except
+      TabelaExiste := False;
+    end;
+  finally
+    CheckQuery.Free;
+  end;
+  
+  if TabelaExiste then
+  begin
+    Log('Tabela ENVIO_BOLETINS ja existe.');
+    Exit;
+  end;
+
+  // Criar tabela
+  try
+    FDConnection.ExecSQL(SQL_CRIAR_TABELA);
+    Log('Tabela ENVIO_BOLETINS criada.');
+
+    // Criar generator (sequencia)
+    try
+      FDConnection.ExecSQL(SQL_CRIAR_GENERATOR);
+      Log('Sequencia GEN_ENVIO_BOLETINS_ID criada.');
+    except
+      // Generator pode ja existir, ignorar erro
+    end;
+
+    // Criar trigger
+    try
+      FDConnection.ExecSQL(SQL_CRIAR_TRIGGER);
+      Log('Trigger TR_ENVIO_BOLETINS_BI criada.');
+    except
+      // Trigger pode ja existir, ignorar erro
+    end;
+
+    Log('Estrutura ENVIO_BOLETINS criada com sucesso.');
+  except
+    on E: Exception do
+      Log('Erro ao criar tabela: ' + E.Message, False);
+  end;
+end;
+
+function TFormExportarBoletim.CriarEnvioFirebase: string;
+const
+  FIREBASE_PROJECT = 'clickacademico-342da';
+  FIREBASE_API_KEY = 'AIzaSyA2-w2UfVhzN2prqJ2H0kecHYwLTC3XbkU';
+var
+  HTTP: TNetHTTPClient;
+  JSONDoc: TJSONObject;
+  FieldsObj: TJSONObject;
+  RequestStream: TStringStream;
+  Response: IHTTPResponse;
+  URL: string;
+  JSONRes: TJSONObject;
+  DocName: string;
+begin
+  Result := '';
+  HTTP := TNetHTTPClient.Create(nil);
+  try
+    HTTP.ContentType := 'application/json';
+    URL := 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT + 
+           '/databases/(default)/documents/envio_boletins?key=' + FIREBASE_API_KEY;
+    
+    JSONDoc := TJSONObject.Create;
+    FieldsObj := TJSONObject.Create;
+    try
+      // Campos do documento envio_boletins
+      FieldsObj.AddPair('data_envio', TJSONObject.Create.AddPair('timestampValue', 
+        FormatDateTime('yyyy-mm-dd"T"hh:nn:ss"Z"', Now)));
+      FieldsObj.AddPair('ano_letivo', TJSONObject.Create.AddPair('integerValue', '2026'));
+      FieldsObj.AddPair('status', TJSONObject.Create.AddPair('stringValue', 'ATIVO'));
+      
+      JSONDoc.AddPair('fields', FieldsObj);
+      
+      RequestStream := TStringStream.Create(JSONDoc.ToJSON, TEncoding.UTF8);
+      try
+        Log('Criando registro de envio no Firebase...');
+        Response := HTTP.Post(URL, RequestStream);
+        
+        if Response.StatusCode in [200, 201] then
+        begin
+          JSONRes := TJSONObject.ParseJSONValue(Response.ContentAsString) as TJSONObject;
+          if Assigned(JSONRes) then
+          try
+            DocName := JSONRes.GetValue('name').Value;
+            // Extrair apenas o ID do documento (ultima parte do path)
+            Result := Copy(DocName, LastDelimiter('/', DocName) + 1, MaxInt);
+            Log('Envio criado no Firebase. ID: ' + Result);
+          finally
+            JSONRes.Free;
+          end;
+        end
+        else
+        begin
+          Log('Erro ao criar envio: ' + Response.StatusText, False);
+        end;
+      finally
+        RequestStream.Free;
+      end;
+    finally
+      JSONDoc.Free;
+    end;
+  finally
+    HTTP.Free;
+  end;
+end;
+
+procedure TFormExportarBoletim.SalvarEnvioLocal(const IdEnvioFirebase: string; Quantidade: Integer);
+const
+  SQL_INSERT = 'INSERT INTO ENVIO_BOLETINS (DATA_ENVIO, ANO_LETIVO, ID_ENVIO_FIREBASE, QUANTIDADE_REGISTROS, STATUS) ' +
+               'VALUES (CURRENT_TIMESTAMP, 2026, :ID_FIREBASE, :QUANTIDADE, ''ENVIADO'')';
+begin
+  try
+    FDConnection.ExecSQL(SQL_INSERT, [IdEnvioFirebase, Quantidade]);
+    Log('Envio salvo localmente. Registros: ' + Quantidade.ToString);
+  except
+    on E: Exception do
+      Log('Erro ao salvar envio local: ' + E.Message, False);
+  end;
+end;
+
+procedure TFormExportarBoletim.ExecutarQueryBoletim;
+const
+  SQL_BOLETIM =
+    'SELECT DISTINCT ' +
+    '    P.CODIGO AS CODPAI, ' +
+    '    P.NOME AS NOMEPAI, ' +
+    '    M.CODIGO AS CODMAE, ' +
+    '    M.NOME AS NOMEMAE, ' +
+    '    nat.CODIGOTURMA, ' +
+    '    t.nome as TURMA, ' +
+    '    a.NOME AS NOME_ALUNO, ' +
+    '    nat.codigoaluno, ' +
+    '    nat.CODIGODISCIPLINA, ' +
+    '    d.NOME AS NOME_DISCIPLINA, ' +
+    '    nat.MEDIA_1B, ' +
+    '    nat.MEDIA_2B, ' +
+    '    nat.MEDIA_3B, ' +
+    '    nat.MEDIA_4B, ' +
+    '    AF.B1, ' +
+    '    AF.B2, ' +
+    '    AF.B3, ' +
+    '    AF.B4, ' +
+    '    nat.NOTARECUPERACAO AS RECUP, ' +
+    '    nat.MEDIAANUAL, ' +
+    '    nat.MEDIAANUALFINAL, ' +
+    '    AF.TOTAL AS TOTFALTAS, ' +
+    '    s.NOME as SITUACAO ' +
+    'FROM NOTAALUNOTURMA nat ' +
+    'INNER JOIN turma            t ON t.codigo = nat.CODIGOTURMA ' +
+    'INNER JOIN aluno            a ON a.codigo = nat.CODIGOALUNO ' +
+    'LEFT  JOIN ALUNOFREQUENCIA AF ON AF.CODIGOTURMA = NAT.CODIGOTURMA AND NAT.CODIGOALUNO = AF.CODIGOALUNO ' +
+    'LEFT  JOIN RESPONSAVEL     P ON P.CODIGO = a.CODIGOPAI ' +
+    'LEFT  JOIN RESPONSAVEL     M ON M.CODIGO = a.CODIGOMAE ' +
+    'INNER JOIN disciplina      d ON d.codigo = nat.codigodisciplina ' +
+    'INNER JOIN SITUACAO        s ON s.codigo = nat.CODIGOSITUACAO ' +
+    'WHERE extract(year from T.inicio) = :ANO_LETIVO ' +
+    'ORDER BY nat.codigoturma, a.nome, d.codigo';
+begin
+  FDQueryBoletim.Close;
+  FDQueryBoletim.SQL.Text := SQL_BOLETIM;
+  FDQueryBoletim.ParamByName('ANO_LETIVO').AsInteger := AnoLetivo;
+  FDQueryBoletim.Open;
+  Log('Query executada para ano ' + AnoLetivo.ToString + '. Registros encontrados: ' + FDQueryBoletim.RecordCount.ToString);
+end;
+
+procedure TFormExportarBoletim.ExportarDados(const IdEnvioFirebase: string; out Quantidade: Integer);
+const
+  FIREBASE_PROJECT = 'clickacademico-342da';
+  FIREBASE_API_KEY = 'AIzaSyA2-w2UfVhzN2prqJ2H0kecHYwLTC3XbkU';
+  COLECAO = 'boletim_alunos';
+var
+  HTTP: TNetHTTPClient;
+  JSONDoc, FieldsObj, ValueObj, IdEnvioObj: TJSONObject;
+  RequestStream: TStringStream;
+  Response: IHTTPResponse;
+  URL: string;
+  i: Integer;
+  FieldName: string;
+begin
+  Quantidade := 0;
+  if FDQueryBoletim.IsEmpty then
+  begin
+    Log('Nenhum dado para exportar.', False);
+    Exit;
+  end;
+  
+  HTTP := TNetHTTPClient.Create(nil);
+  try
+    HTTP.ContentType := 'application/json';
+    URL := 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT + 
+           '/databases/(default)/documents/' + COLECAO + '?key=' + FIREBASE_API_KEY;
+    
+    FDQueryBoletim.First;
+    while not FDQueryBoletim.Eof do
+    begin
+      JSONDoc := TJSONObject.Create;
+      FieldsObj := TJSONObject.Create;
+      try
+        // Adicionar campo id_envio referenciando o documento de envio
+        IdEnvioObj := TJSONObject.Create;
+        IdEnvioObj.AddPair('stringValue', IdEnvioFirebase);
+        FieldsObj.AddPair('id_envio', IdEnvioObj);
+        
+        // Converter todos os campos do dataset para JSON Firestore
+        for i := 0 to FDQueryBoletim.FieldCount - 1 do
+        begin
+          if FDQueryBoletim.Fields[i].IsNull then Continue;
+          
+          FieldName := FDQueryBoletim.Fields[i].FieldName.ToLower;
+          ValueObj := TJSONObject.Create;
+          
+          case FDQueryBoletim.Fields[i].DataType of
+            ftInteger, ftSmallint, ftShortint, ftLargeint:
+              ValueObj.AddPair('integerValue', FDQueryBoletim.Fields[i].AsLargeInt.ToString);
+            ftFloat, ftCurrency, ftBCD, ftFMTBcd:
+              ValueObj.AddPair('doubleValue', TJSONNumber.Create(FDQueryBoletim.Fields[i].AsFloat));
+            ftBoolean:
+              ValueObj.AddPair('booleanValue', TJSONBool.Create(FDQueryBoletim.Fields[i].AsBoolean));
+            ftDateTime, ftDate, ftTime:
+              ValueObj.AddPair('timestampValue', FormatDateTime('yyyy-mm-dd"T"hh:nn:ss"Z"', 
+                FDQueryBoletim.Fields[i].AsDateTime));
+            else
+              ValueObj.AddPair('stringValue', FDQueryBoletim.Fields[i].AsString);
+          end;
+          
+          FieldsObj.AddPair(FieldName, ValueObj);
+        end;
+        
+        JSONDoc.AddPair('fields', FieldsObj);
+        
+        RequestStream := TStringStream.Create(JSONDoc.ToJSON, TEncoding.UTF8);
+        try
+          Response := HTTP.Post(URL, RequestStream);
+          
+          if Response.StatusCode in [200, 201] then
+          begin
+            Inc(Quantidade);
+            if (Quantidade mod 10) = 0 then
+              Log('Exportados: ' + Quantidade.ToString + ' registros...');
+          end
+          else
+          begin
+            Log('Erro no registro ' + FDQueryBoletim.RecNo.ToString + ': ' + Response.StatusText, False);
+          end;
+        finally
+          RequestStream.Free;
+        end;
+      finally
+        JSONDoc.Free;
+      end;
+      
+      FDQueryBoletim.Next;
+    end;
+    
+    Log('Exportacao concluida. Total: ' + Quantidade.ToString + ' registros.');
+  finally
+    HTTP.Free;
+  end;
+end;
+
+procedure TFormExportarBoletim.ReverterEnvio(const IdEnvioFirebase: string);
+const
+  FIREBASE_PROJECT = 'clickacademico-342da';
+  FIREBASE_API_KEY = 'AIzaSyA2-w2UfVhzN2prqJ2H0kecHYwLTC3XbkU';
+var
+  HTTP: TNetHTTPClient;
+  URL, QueryJSON: string;
+  Response: IHTTPResponse;
+  RequestStream: TStringStream;
+  JSONRes, Doc: TJSONObject;
+  Documents: TJSONArray;
+  i: Integer;
+  DocPath, DocId: string;
+  TotalDeletados: Integer;
+  SQL_UPDATE: string;
+begin
+  if IdEnvioFirebase = '' then
+  begin
+    Log('ID de envio invalido.', False);
+    Exit;
+  end;
+
+  Log('========================================');
+  Log('INICIANDO REVERSAO DO ENVIO');
+  Log('ID: ' + IdEnvioFirebase);
+  Log('========================================');
+
+  HTTP := TNetHTTPClient.Create(nil);
+  TotalDeletados := 0;
+  try
+    HTTP.ContentType := 'application/json';
+
+    // 1. Buscar todos os documentos de boletim_alunos com este id_envio
+    URL := 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT +
+           '/databases/(default)/documents:runQuery?key=' + FIREBASE_API_KEY;
+
+    QueryJSON :=
+      '{ "structuredQuery": { ' +
+      '  "from": [{"collectionId": "boletim_alunos"}], ' +
+      '  "where": { "fieldFilter": { ' +
+      '    "field": {"fieldPath": "id_envio"}, ' +
+      '    "op": "EQUAL", ' +
+      '    "value": {"stringValue": "' + IdEnvioFirebase + '"} ' +
+      '  } } ' +
+      '} }';
+
+    Log('Buscando registros do boletim para deletar...');
+
+    RequestStream := TStringStream.Create(QueryJSON, TEncoding.UTF8);
+    try
+      Response := HTTP.Post(URL, RequestStream);
+
+      if Response.StatusCode = 200 then
+      begin
+        JSONRes := TJSONObject.ParseJSONValue(Response.ContentAsString) as TJSONObject;
+        if Assigned(JSONRes) then
+        try
+          // runQuery retorna objeto com campo 'document' array
+          Documents := JSONRes.GetValue('document') as TJSONArray;
+          if Assigned(Documents) then
+          begin
+            Log(Format('Encontrados %d registros para deletar.', [Documents.Count]));
+
+            // Deletar cada documento
+            for i := 0 to Documents.Count - 1 do
+            begin
+              Doc := Documents.Items[i] as TJSONObject;
+              DocPath := Doc.GetValue('name').Value;
+              DocId := Copy(DocPath, LastDelimiter('/', DocPath) + 1, MaxInt);
+
+              // DELETE documento individual
+              HTTP.Delete('https://firestore.googleapis.com/v1/' + DocPath + '?key=' + FIREBASE_API_KEY);
+              Inc(TotalDeletados);
+
+              if (TotalDeletados mod 10) = 0 then
+              begin
+                Log(Format('Deletados %d registros...', [TotalDeletados]));
+                Application.ProcessMessages;
+              end;
+            end;
+
+            Log(Format('Total de %d registros deletados do boletim_alunos.', [TotalDeletados]));
+          end;
+        finally
+          JSONRes.Free;
+        end;
+      end;
+    finally
+      RequestStream.Free;
+    end;
+
+    // 2. Deletar o documento de envio_boletins
+    Log('Deletando registro de envio...');
+    HTTP.Delete('https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT +
+                '/databases/(default)/documents/envio_boletins/' + IdEnvioFirebase +
+                '?key=' + FIREBASE_API_KEY);
+
+    // 3. Atualizar status no Firebird
+    SQL_UPDATE := 'UPDATE ENVIO_BOLETINS SET STATUS = ''REVERTIDO'' WHERE ID_ENVIO_FIREBASE = :ID';
+    try
+      FDConnection.ExecSQL(SQL_UPDATE, [IdEnvioFirebase]);
+      Log('Status atualizado para REVERTIDO no banco local.');
+    except
+      on E: Exception do
+        Log('Aviso: Erro ao atualizar status local: ' + E.Message, False);
+    end;
+
+    Log('========================================');
+    Log('REVERSAO CONCLUIDA COM SUCESSO!');
+    Log(Format('Registros deletados: %d', [TotalDeletados]));
+    Log('========================================');
+
+    ShowMessage(Format('Envio revertido com sucesso!%s%d registros deletados do Firebase.', [
+      sLineBreak + sLineBreak, TotalDeletados]));
+
+  except
+    on E: Exception do
+    begin
+      Log('Erro ao reverter envio: ' + E.Message, False);
+      ShowMessage('Erro ao reverter envio: ' + E.Message);
+    end;
+  end;
+
+  HTTP.Free;
+end;
+
+procedure TFormExportarBoletim.ExportarDadosComProgresso(const IdEnvioFirebase: string; out Quantidade: Integer; TotalRegistros: Integer; AnoLetivo: Integer);
+const
+  FIREBASE_PROJECT = 'clickacademico-342da';
+  FIREBASE_API_KEY = 'AIzaSyA2-w2UfVhzN2prqJ2H0kecHYwLTC3XbkU';
+  COLECAO = 'boletim_alunos';
+var
+  HTTP: TNetHTTPClient;
+  JSONDoc, FieldsObj, ValueObj, IdEnvioObj, AnoLetivoObj: TJSONObject;
+  RequestStream: TStringStream;
+  Response: IHTTPResponse;
+  URL: string;
+  i: Integer;
+  FieldName: string;
+begin
+  Quantidade := 0;
+  if FDQueryBoletim.IsEmpty then
+  begin
+    Log('Nenhum dado para exportar.', False);
+    Exit;
+  end;
+
+  HTTP := TNetHTTPClient.Create(nil);
+  try
+    HTTP.ContentType := 'application/json';
+    URL := 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT +
+           '/databases/(default)/documents/' + COLECAO + '?key=' + FIREBASE_API_KEY;
+
+    FDQueryBoletim.First;
+    while not FDQueryBoletim.Eof do
+    begin
+      JSONDoc := TJSONObject.Create;
+      FieldsObj := TJSONObject.Create;
+      try
+        // Adicionar campo id_envio referenciando o documento de envio
+        IdEnvioObj := TJSONObject.Create;
+        IdEnvioObj.AddPair('stringValue', IdEnvioFirebase);
+        FieldsObj.AddPair('id_envio', IdEnvioObj);
+
+        // Adicionar campo ano_letivo
+        AnoLetivoObj := TJSONObject.Create;
+        AnoLetivoObj.AddPair('integerValue', AnoLetivo.ToString);
+        FieldsObj.AddPair('ano_letivo', AnoLetivoObj);
+
+        // Converter todos os campos do dataset para JSON Firestore
+        for i := 0 to FDQueryBoletim.FieldCount - 1 do
+        begin
+          if FDQueryBoletim.Fields[i].IsNull then Continue;
+
+          FieldName := FDQueryBoletim.Fields[i].FieldName.ToLower;
+          ValueObj := TJSONObject.Create;
+
+          case FDQueryBoletim.Fields[i].DataType of
+            ftInteger, ftSmallint, ftShortint, ftLargeint:
+              ValueObj.AddPair('integerValue', FDQueryBoletim.Fields[i].AsLargeInt.ToString);
+            ftFloat, ftCurrency, ftBCD, ftFMTBcd:
+              ValueObj.AddPair('doubleValue', TJSONNumber.Create(FDQueryBoletim.Fields[i].AsFloat));
+            ftBoolean:
+              ValueObj.AddPair('booleanValue', TJSONBool.Create(FDQueryBoletim.Fields[i].AsBoolean));
+            ftDateTime, ftDate, ftTime:
+              ValueObj.AddPair('timestampValue', FormatDateTime('yyyy-mm-dd"T"hh:nn:ss"Z"',
+                FDQueryBoletim.Fields[i].AsDateTime));
+            else
+              ValueObj.AddPair('stringValue', FDQueryBoletim.Fields[i].AsString);
+          end;
+
+          FieldsObj.AddPair(FieldName, ValueObj);
+        end;
+
+        JSONDoc.AddPair('fields', FieldsObj);
+
+        RequestStream := TStringStream.Create(JSONDoc.ToJSON, TEncoding.UTF8);
+        try
+          Response := HTTP.Post(URL, RequestStream);
+
+          if Response.StatusCode in [200, 201] then
+          begin
+            Inc(Quantidade);
+
+            // Atualizar progress bar a cada registro
+            ProgressBar.Position := Quantidade;
+            lblProgresso.Caption := Format('Exportando: %d de %d registros', [Quantidade, TotalRegistros]);
+
+            // Log a cada 10 registros
+            if (Quantidade mod 10) = 0 then
+            begin
+              Log(Format('Exportados: %d de %d registros (%.0f%%)...',
+                [Quantidade, TotalRegistros, (Quantidade / TotalRegistros) * 100]));
+            end;
+
+            Application.ProcessMessages;
+          end
+          else
+          begin
+            Log('Erro no registro ' + FDQueryBoletim.RecNo.ToString + ': ' + Response.StatusText, False);
+          end;
+        finally
+          RequestStream.Free;
+        end;
+      finally
+        JSONDoc.Free;
+      end;
+
+      FDQueryBoletim.Next;
+    end;
+
+    Log(Format('Exportacao concluida. Total: %d de %d registros (%.0f%%).',
+      [Quantidade, TotalRegistros, (Quantidade / TotalRegistros) * 100]));
+  finally
+    HTTP.Free;
+  end;
+end;
+
+procedure TFormExportarBoletim.btnExportarClick(Sender: TObject);
+var
+  IdEnvioFirebase: string;
+  Quantidade: Integer;
+  TotalRegistros: Integer;
+begin
+  Log('========================================');
+  Log('INICIANDO EXPORTACAO DO BOLETIM');
+  Log('========================================');
+
+  btnExportar.Enabled := False;
+  ProgressBar.Visible := True;
+  lblProgresso.Visible := True;
+  try
+    // 1. Criar tabela local se nao existir
+    CriarTabelaEnvioBoletins;
+
+    // 2. Executar query para carregar dados do ano selecionado
+    ExecutarQueryBoletim(ObterAnoLetivoSelecionado);
+
+    if FDQueryBoletim.IsEmpty then
+    begin
+      Log('Nenhum dado encontrado para exportar.', False);
+      Exit;
+    end;
+
+    // Garantir que temos o total correto de registros
+    FDQueryBoletim.Last;
+    FDQueryBoletim.First;
+    TotalRegistros := FDQueryBoletim.RecordCount;
+    Log('Total de registros para exportar: ' + TotalRegistros.ToString);
+
+    // Configurar progress bar (Max deve ser configurado apos Min e com valor correto)
+    ProgressBar.Min := 0;
+    ProgressBar.Max := TotalRegistros;
+    ProgressBar.Position := 0;
+    ProgressBar.Step := 1;
+    lblProgresso.Caption := Format('Exportando: 0 de %d registros', [TotalRegistros]);
+    Application.ProcessMessages;
+
+    // 3. Criar documento de envio no Firebase
+    IdEnvioFirebase := CriarEnvioFirebase;
+    if IdEnvioFirebase = '' then
+    begin
+      Log('Falha ao criar envio no Firebase. Abortando.', False);
+      Exit;
+    end;
+
+    // 4. Exportar dados para boletim_alunos com referencia ao envio (com progresso)
+    ExportarDadosComProgresso(IdEnvioFirebase, Quantidade, TotalRegistros, ObterAnoLetivoSelecionado);
+
+    // 5. Salvar referencia local
+    SalvarEnvioLocal(IdEnvioFirebase, Quantidade);
+
+    Log('========================================');
+    Log('EXPORTACAO CONCLUIDA COM SUCESSO!');
+    Log('ID Envio: ' + IdEnvioFirebase);
+    Log('Registros: ' + Quantidade.ToString);
+    Log('========================================');
+
+  except
+    on E: Exception do
+      Log('Erro durante exportacao: ' + E.Message, False);
+  end;
+
+  ProgressBar.Visible := False;
+  lblProgresso.Visible := False;
+  btnExportar.Enabled := True;
+  CarregarGridEnvios;
+end;
+
+procedure TFormExportarBoletim.btnReverterClick(Sender: TObject);
+var
+  IdEnvioFirebase: string;
+  StatusAtual: string;
+begin
+  if FDQueryEnvios.IsEmpty then
+  begin
+    Log('Nenhum envio selecionado.', False);
+    Exit;
+  end;
+
+  // Pegar dados do registro selecionado
+  IdEnvioFirebase := FDQueryEnvios.FieldByName('ID_ENVIO_FIREBASE').AsString;
+  StatusAtual := FDQueryEnvios.FieldByName('STATUS').AsString;
+
+  if IdEnvioFirebase = '' then
+  begin
+    Log('ID Firebase invalido.', False);
+    Exit;
+  end;
+
+  if StatusAtual = 'REVERTIDO' then
+  begin
+    ShowMessage('Este envio ja foi revertido anteriormente.');
+    Exit;
+  end;
+
+  if MessageDlg(Format('Deseja reverter o envio?%s%s%s%d registros serao deletados do Firebase.', [
+    sLineBreak, sLineBreak,
+    'ID: ' + IdEnvioFirebase + sLineBreak,
+    FDQueryEnvios.FieldByName('QUANTIDADE_REGISTROS').AsInteger]),
+    mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+  begin
+    btnReverter.Enabled := False;
+    try
+      ReverterEnvio(IdEnvioFirebase);
+    finally
+      btnReverter.Enabled := True;
+      CarregarGridEnvios; // Atualizar grid para mostrar REVERTIDO
+    end;
+  end;
+end;
+
+procedure TFormExportarBoletim.btnAtualizarClick(Sender: TObject);
+begin
+  CarregarGridEnvios;
+end;
+
+procedure TFormExportarBoletim.btnFecharClick(Sender: TObject);
+begin
+  Close;
+end;
+
+end.
