@@ -227,8 +227,9 @@ object FormCadastroLoginProfessores: TFormCadastroLoginProfessores
       'Port=3050'
       'DriverID=FB')
     LoginPrompt = False
-    Left = 680
-    Top = 80
+    BeforeConnect = FDConnectionBeforeConnect
+    Left = 20
+    Top = 20
   end
   object FDQueryProfessores: TFDQuery
     Connection = FDConnection

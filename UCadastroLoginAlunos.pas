@@ -11,7 +11,8 @@ uses
   FireDAC.Comp.DataSet, System.JSON, System.Net.HttpClient, System.Net.URLClient,
   System.Net.HttpClientComponent, System.Math, FireDAC.Stan.Param, FireDAC.DatS,
   FireDAC.DApt.Intf, FireDAC.DApt,
-  USelecionarAluno;
+  USelecionarAluno,
+  UConfigManager;
 
 type
   TFormCadastroLoginAlunos = class(TForm)
@@ -54,9 +55,11 @@ type
     procedure btnResetarSenhaClick(Sender: TObject);
     procedure btnCadastrarTodosClick(Sender: TObject);
     procedure btnAdicionarIndividualClick(Sender: TObject);
+    procedure FDConnectionBeforeConnect(Sender: TObject);
   private
     FEditando: Boolean;
     FCodigoAlunoAtual: Integer;
+    procedure ConfigurarConexaoFromINI;
     procedure LimparCampos;
     procedure HabilitarCampos(Habilitar: Boolean);
     procedure CarregarGrid;
@@ -84,8 +87,40 @@ implementation
 
 {$R *.dfm}
 
+procedure TFormCadastroLoginAlunos.FDConnectionBeforeConnect(Sender: TObject);
+begin
+  // Configurar conexão automaticamente via ConfigManager antes de abrir
+  ConfigManager.ConfigurarFDConnection(FDConnection);
+end;
+
+procedure TFormCadastroLoginAlunos.ConfigurarConexaoFromINI;
+const
+  FIREBASE_PROJECT = 'clickacademico-342da';
+  FIREBASE_API_KEY = 'AIzaSyA2-w2UfVhzN2prqJ2H0kecHYwLTC3XbkU';
+begin
+  // Configurar conexão Firebird do arquivo INI
+  if FDConnection.Connected then
+    FDConnection.Connected := False;
+
+  FDConnection.Params.DriverID := ConfigManager.Database.DriverID;
+  FDConnection.Params.Database := ConfigManager.GetFirebirdConnectionString;
+  FDConnection.Params.UserName := ConfigManager.Database.UserName;
+  FDConnection.Params.Password := ConfigManager.Database.Password;
+
+  try
+    FDConnection.Connected := True;
+  except
+    on E: Exception do
+      ShowMessage('Erro ao conectar ao banco de dados: ' + E.Message + #13#10 +
+                'Verifique as configurações em: ' + ConfigManager.ConfigPath);
+  end;
+end;
+
 procedure TFormCadastroLoginAlunos.FormCreate(Sender: TObject);
 begin
+  // Configurar conexão do arquivo INI antes de inicializar
+  ConfigurarConexaoFromINI;
+
   FEditando := False;
   FCodigoAlunoAtual := 0;
   LimparCampos;
@@ -1044,6 +1079,14 @@ begin
         CodigoAluno := QueryAlunos.FieldByName('CODIGO').AsInteger;
         NomeAluno := QueryAlunos.FieldByName('NOME').AsString;
         CPF := QueryAlunos.FieldByName('CPF').AsString;
+
+        // Verificar se CPF está preenchido
+        if Trim(CPF) = '' then
+        begin
+          Inc(Ignorados);
+          QueryAlunos.Next;
+          Continue;
+        end;
 
         // Verificar se já existe login
         if LoginJaExiste(CodigoAluno) then

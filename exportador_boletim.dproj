@@ -100,38 +100,31 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
+        <DCCReference Include="UConfigManager.pas"/>
         <DCCReference Include="UExportarBoletim.pas">
             <Form>FormExportarBoletim</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="USyncService.pas"/>
         <DCCReference Include="UCadastroLoginAlunos.pas">
             <Form>FormCadastroLoginAlunos</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="UFormPrincipal.pas">
             <Form>FormPrincipal</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="UConfigBoletim.pas">
             <Form>FormConfigBoletim</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="UCadastroLoginProfessores.pas">
             <Form>FormCadastroLoginProfessores</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="UExportarDados.pas">
             <Form>FormExportarDados</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="UConsultarNotas.pas">
             <Form>FormConsultarNotas</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="USelecionarAluno.pas">
             <Form>FormSelecionarAluno</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>

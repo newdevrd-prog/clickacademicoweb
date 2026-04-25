@@ -10,7 +10,8 @@ uses
   FireDAC.Stan.Async, FireDAC.Phys, FireDAC.Phys.FB, FireDAC.Phys.FBDef, FireDAC.VCLUI.Wait,
   FireDAC.Comp.DataSet, System.JSON, System.Net.HttpClient, System.Net.URLClient,
   System.Net.HttpClientComponent, System.Math, FireDAC.Stan.Param, FireDAC.DatS,
-  FireDAC.DApt.Intf, FireDAC.DApt;
+  FireDAC.DApt.Intf, FireDAC.DApt,
+  UConfigManager;
 
 const
   FIREBASE_PROJECT = 'clickacademico-342da';
@@ -55,9 +56,11 @@ type
     procedure DBGridLoginsDblClick(Sender: TObject);
     procedure btnExcluirClick(Sender: TObject);
     procedure btnResetarSenhaClick(Sender: TObject);
+    procedure FDConnectionBeforeConnect(Sender: TObject);
   private
     FDocumentoId: string;
     FModoEdicao: Boolean;
+    procedure ConfigurarConexaoFromINI;
     procedure CarregarProfessoresFirebase;
     procedure LimparCampos;
     procedure ConfigurarCamposModoEdicao(ModoEdicao: Boolean);
@@ -74,11 +77,40 @@ implementation
 
 {$R *.dfm}
 
+procedure TFormCadastroLoginProfessores.FDConnectionBeforeConnect(Sender: TObject);
+begin
+  // Configurar conexão automaticamente via ConfigManager antes de abrir
+  ConfigManager.ConfigurarFDConnection(FDConnection);
+end;
+
+procedure TFormCadastroLoginProfessores.ConfigurarConexaoFromINI;
+begin
+  // Configurar conexão Firebird do arquivo INI
+  if FDConnection.Connected then
+    FDConnection.Connected := False;
+
+  FDConnection.Params.DriverID := ConfigManager.Database.DriverID;
+  FDConnection.Params.Database := ConfigManager.GetFirebirdConnectionString;
+  FDConnection.Params.UserName := ConfigManager.Database.UserName;
+  FDConnection.Params.Password := ConfigManager.Database.Password;
+
+  try
+    FDConnection.Connected := True;
+  except
+    on E: Exception do
+      ShowMessage('Erro ao conectar ao banco de dados: ' + E.Message + #13#10 +
+                'Verifique as configurações em: ' + ConfigManager.ConfigPath);
+  end;
+end;
+
 procedure TFormCadastroLoginProfessores.FormCreate(Sender: TObject);
 begin
+  // Configurar conexão do arquivo INI antes de inicializar
+  ConfigurarConexaoFromINI;
+
   FDocumentoId := '';
   FModoEdicao := False;
-  
+
   // Configurar FDMemTable
   FDMemTableProfessores.Close;
   FDMemTableProfessores.FieldDefs.Clear;

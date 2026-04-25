@@ -254,6 +254,16 @@ object FormConsultarNotas: TFormConsultarNotas
     end
   end
   object FDConnection: TFDConnection
+    Params.Strings = (
+      'DriverID=FB'
+      'Server=localhost'
+      'Database=C:\ClickAcademico\ClickAcademico.FDB'
+      'User_Name=SYSDBA'
+      'Password=masterkey'
+      'Protocol=TCPIP'
+      'Port=3050')
+    LoginPrompt = False
+    BeforeConnect = FDConnectionBeforeConnect
     Left = 880
     Top = 200
   end

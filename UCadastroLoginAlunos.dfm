@@ -283,6 +283,7 @@ object FormCadastroLoginAlunos: TFormCadastroLoginAlunos
       'Port=3050'
       'Database=C:\ClickAcademico\ClickAcademico.fdb')
     LoginPrompt = False
+    BeforeConnect = FDConnectionBeforeConnect
     Left = 20
     Top = 20
   end

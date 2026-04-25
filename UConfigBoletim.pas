@@ -7,7 +7,8 @@ uses
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Buttons, System.Net.HttpClient,
   System.Net.HttpClientComponent, System.JSON, System.NetEncoding,
-  System.IOUtils, Vcl.Imaging.jpeg, Vcl.Imaging.pngimage;
+  System.IOUtils, Vcl.Imaging.jpeg, Vcl.Imaging.pngimage,
+  UConfigManager;
 
 const
   FIREBASE_PROJECT = 'clickacademico-342da';

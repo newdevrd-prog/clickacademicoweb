@@ -10,7 +10,8 @@ uses
   FireDAC.Stan.Async, FireDAC.Phys, FireDAC.Phys.FB, FireDAC.Phys.FBDef, FireDAC.VCLUI.Wait,
   FireDAC.Comp.DataSet, System.JSON, System.Net.HttpClient, System.Net.URLClient,
   System.Net.HttpClientComponent, System.DateUtils, FireDAC.Stan.Param,
-  FireDAC.DatS, FireDAC.DApt.Intf, FireDAC.DApt;
+  FireDAC.DatS, FireDAC.DApt.Intf, FireDAC.DApt,
+  UConfigManager;
 
 const
   FIREBASE_PROJECT = 'clickacademico-342da';
@@ -54,6 +55,7 @@ type
     procedure FormShow(Sender: TObject);
     procedure btnFecharClick(Sender: TObject);
     procedure btnExportarTodosClick(Sender: TObject);
+    procedure FDConnectionBeforeConnect(Sender: TObject);
   private
     { Private declarations }
     FHTTP: THTTPClient;
@@ -90,6 +92,12 @@ var
 implementation
 
 {$R *.dfm}
+
+procedure TFormExportarDados.FDConnectionBeforeConnect(Sender: TObject);
+begin
+  // Configurar conexão automaticamente via ConfigManager antes de abrir
+  ConfigManager.ConfigurarFDConnection(FDConnection);
+end;
 
 procedure TFormExportarDados.FormCreate(Sender: TObject);
 begin

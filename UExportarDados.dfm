@@ -95,7 +95,7 @@ object FormExportarDados: TFormExportarDados
         Width = 280
         Height = 17
         Caption = 'Sobrescrever registros existentes (update)'
-        Checked = True
+        Left = 680
         State = cbChecked
         TabOrder = 1
       end
@@ -228,14 +228,17 @@ object FormExportarDados: TFormExportarDados
   end
   object FDConnection: TFDConnection
     Params.Strings = (
-      'Database=C:\ClickAcademico\CLICKACADEMICO.fdb'
+      'Server=localhost'
+      'Database=C:\ClickAcademico\ClickAcademico.FDB'
       'User_Name=sysdba'
       'Password=masterkey'
-      'Server=localhost'
+      'Protocol=TCPIP'
+      'Port=3050'
       'DriverID=FB')
     LoginPrompt = False
-    Left = 48
-    Top = 560
+    BeforeConnect = FDConnectionBeforeConnect
+    Left = 680
+    Top = 20
   end
   object FDQueryExportacao: TFDQuery
     Connection = FDConnection

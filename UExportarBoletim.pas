@@ -10,7 +10,8 @@ uses
   FireDAC.Stan.Async, FireDAC.Phys, FireDAC.Phys.FB, FireDAC.Phys.FBDef, FireDAC.VCLUI.Wait,
   FireDAC.Comp.DataSet, FireDAC.Stan.Param, FireDAC.DatS, FireDAC.DApt.Intf, FireDAC.DApt,
   FireDAC.Phys.IBBase, System.JSON, System.Net.HttpClient, System.Net.URLClient,
-  System.Net.HttpClientComponent, System.DateUtils, USyncService;
+  System.Net.HttpClientComponent, System.DateUtils, USyncService,
+  UConfigManager;
 
 type
   TFormExportarBoletim = class(TForm)
@@ -41,6 +42,7 @@ type
     procedure FormDestroy(Sender: TObject);
     procedure btnAtualizarClick(Sender: TObject);
     procedure btnReverterClick(Sender: TObject);
+    procedure FDConnectionBeforeConnect(Sender: TObject);
   private
     FSyncService: TSyncServiceAPI;
     procedure Log(const Msg: string; Success: Boolean = True);
@@ -110,17 +112,21 @@ begin
   FSyncService.Free;
 end;
 
+procedure TFormExportarBoletim.FDConnectionBeforeConnect(Sender: TObject);
+begin
+  // Configurar conexão automaticamente via ConfigManager antes de abrir
+  ConfigManager.ConfigurarFDConnection(FDConnection);
+end;
+
 procedure TFormExportarBoletim.ConfigurarConexao;
 begin
-  FDConnection.Params.DriverID := 'FB';
-  FDConnection.Params.Database := 'C:\ClickAcademico\ClickAcademico.fdb';
-  FDConnection.Params.UserName := 'SYSDBA';
-  FDConnection.Params.Password := 'masterkey';
-  FDConnection.Params.Add('Protocol=TCPIP');
-  FDConnection.Params.Add('Server=localhost');
-  FDConnection.Params.Add('Port=3050');
+  // Usar configurações do arquivo INI
+  FDConnection.Params.DriverID := ConfigManager.Database.DriverID;
+  FDConnection.Params.Database := ConfigManager.GetFirebirdConnectionString;
+  FDConnection.Params.UserName := ConfigManager.Database.UserName;
+  FDConnection.Params.Password := ConfigManager.Database.Password;
   FDConnection.LoginPrompt := False;
-  
+
   try
     FDConnection.Connected := True;
     Log('Conectado ao Firebird com sucesso!');
